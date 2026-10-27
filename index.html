@@ -1,0 +1,2074 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<title>HT 智慧物流数据平台 · 物流模块</title>
+<script src="vendor/echarts.min.js"></script>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html,body{width:100%;height:100%;overflow:hidden;background:#030a18;}
+  body{
+    font-family:"Microsoft YaHei","PingFang SC","Noto Sans SC",-apple-system,sans-serif;
+    color:#cfe6ff;
+  }
+  #stage{
+    width:1920px;height:1080px;position:absolute;left:0;top:0;transform-origin:0 0;
+    display:flex;flex-direction:column;
+    background:
+      radial-gradient(1400px 700px at 50% -18%, rgba(24,86,180,.55), transparent 62%),
+      radial-gradient(900px 520px at 6% 96%, rgba(0,140,200,.18), transparent 65%),
+      radial-gradient(900px 520px at 94% 96%, rgba(0,120,220,.16), transparent 65%),
+      linear-gradient(180deg,#040c1c 0%,#061227 48%,#030a18 100%);
+  }
+  #stage::before{
+    content:"";position:absolute;inset:0;pointer-events:none;
+    background-image:
+      linear-gradient(rgba(60,140,220,.055) 1px,transparent 1px),
+      linear-gradient(90deg,rgba(60,140,220,.055) 1px,transparent 1px);
+    background-size:64px 64px,64px 64px;
+    mask-image:radial-gradient(circle at 50% 40%,#000 25%,transparent 82%);
+  }
+
+  /* =================== 顶部标题 =================== */
+  header{
+    position:relative;height:78px;flex:0 0 auto;display:flex;align-items:center;
+    justify-content:center;z-index:5;
+  }
+  .wing{position:absolute;top:16px;height:34px;width:520px;opacity:.9;}
+  .wing.l{left:0;}
+  .wing.r{right:0;transform:scaleX(-1);}
+  h1{
+    font-size:32px;letter-spacing:6px;font-weight:700;position:relative;
+    background:linear-gradient(180deg,#ffffff 8%,#9fdcff 48%,#2e8fe0 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 0 16px rgba(70,180,255,.55));
+    font-family:"Microsoft YaHei","Noto Sans SC",sans-serif;
+  }
+  h1 span.dot{color:#4fd8ff;-webkit-text-fill-color:#4fd8ff;font-size:20px;margin:0 8px;
+    vertical-align:middle;opacity:.9;}
+  .h-left{position:absolute;left:26px;top:26px;display:flex;align-items:center;gap:10px;
+    font-size:13px;color:#6fa6d6;letter-spacing:1px;}
+  .h-left .ico{width:16px;height:16px;border:1.5px solid #45b6ff;border-radius:3px;
+    position:relative;}
+  .h-left .ico::after{content:"";position:absolute;inset:3px;background:#2ea8f0;border-radius:1px;}
+  .h-right{position:absolute;right:20px;top:25px;display:flex;align-items:center;gap:9px;
+    font-size:12px;color:#7fb6e0;}
+  #clock{font-family:Consolas,monospace;font-size:14px;color:#a9dcff;letter-spacing:.5px;}
+  .h-btn{padding:4px 10px;border:1px solid rgba(70,170,240,.45);border-radius:3px;
+    background:rgba(18,60,110,.5);color:#8fd0ff;font-size:11.5px;letter-spacing:.5px;
+    cursor:pointer;white-space:nowrap;transition:.16s;}
+  .h-btn:hover{color:#e7faff;border-color:#4fd0ff;background:rgba(40,120,200,.62);}
+
+  /* =================== 主体三栏 =================== */
+  main{
+    flex:1 1 auto;display:block;padding:0 14px;min-height:0;position:relative;
+  }
+  /* ------- 多视图 ------- */
+  .view{display:none;height:100%;min-height:0;gap:12px;}
+  #view-home.on{display:grid;grid-template-columns:396px 1fr 396px;}
+  #view-io.on{display:grid;grid-template-rows:auto minmax(0,1fr) auto;}
+  #view-dev.on{display:grid;grid-template-rows:auto minmax(0,1fr) auto;}
+  #view-flow.on,#view-sys.on{display:grid;grid-template-columns:1fr 1fr;}
+  #view-pts.on{display:grid;grid-template-rows:auto 300px minmax(0,1fr);gap:0 12px;
+    grid-template-columns:minmax(0,1fr);}
+  /* 明细面板高度随内容，避免大片留白 */
+  #view-io.on > .panel:nth-of-type(2),
+  #view-dev.on > .panel:nth-of-type(2){align-self:stretch;}
+  #view-io.on > .panel:last-of-type,
+  #view-dev.on > .panel:last-of-type{align-self:start;}
+
+  /* ------- KPI 卡 ------- */
+  .kpi-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(0,1fr));gap:12px;}
+  .kpi{position:relative;padding:11px 15px;border-radius:6px;overflow:hidden;
+    background:linear-gradient(165deg,rgba(14,52,104,.5),rgba(5,18,38,.72));
+    border:1px solid rgba(56,140,220,.34);}
+  .kpi::before{content:'';position:absolute;left:0;top:0;bottom:0;width:2px;
+    background:linear-gradient(180deg,#4fd0ff,rgba(79,208,255,0));}
+  .kpi .k-l{color:#7fa6c8;font-size:11.5px;letter-spacing:.6px;}
+  .kpi .k-v{color:#4fd8ff;font-size:25px;font-weight:700;margin-top:2px;
+    font-family:Consolas,monospace;text-shadow:0 0 14px rgba(70,200,255,.45);}
+  .kpi .k-v small{font-size:11px;color:#5d92bd;margin-left:4px;font-weight:400;
+    text-shadow:none;font-family:inherit;}
+  .kpi .k-s{color:#5d92bd;font-size:11px;margin-top:3px;}
+  .kpi.g .k-v{color:#3ff0c0;text-shadow:0 0 14px rgba(63,240,192,.4);}
+  .kpi.o .k-v{color:#ffc74b;text-shadow:0 0 14px rgba(255,199,75,.4);}
+  .kpi.r .k-v{color:#ff6b7d;text-shadow:0 0 14px rgba(255,107,125,.4);}
+
+  /* ------- 明细表 ------- */
+  .dt-tbl{width:100%;border-collapse:collapse;font-size:11.5px;}
+  .dt-tbl thead th{color:#7fb9e2;font-weight:500;text-align:left;padding:7px 10px;
+    font-size:11px;letter-spacing:.3px;white-space:nowrap;
+    border-bottom:1px solid rgba(60,150,225,.45);
+    background:linear-gradient(180deg,rgba(20,70,130,.55),rgba(12,40,80,.2));}
+  .dt-tbl tbody td{padding:6.5px 10px;color:#a9cbe8;white-space:nowrap;
+    border-bottom:1px dashed rgba(46,110,170,.22);}
+  .dt-tbl tbody tr:hover td{background:rgba(60,150,230,.10);color:#cde9ff;}
+  .dt-tbl .num{text-align:right;font-family:Consolas,monospace;}
+  .dt-tbl th.num{text-align:right;}
+  .dt-tbl .pos{color:#3ff0c0;}
+  .dt-tbl .neg{color:#ff6b7d;}
+  .dot-ok,.dot-ng{display:inline-block;width:7px;height:7px;border-radius:50%;
+    margin-right:5px;vertical-align:middle;}
+  .dot-ok{background:#3ff0c0;box-shadow:0 0 7px #3ff0c0;}
+  .dot-ng{background:#ff5a72;box-shadow:0 0 7px #ff5a72;}
+  .bar-cell{position:relative;height:14px;border-radius:3px;overflow:hidden;
+    background:rgba(40,110,180,.18);min-width:110px;}
+  .bar-cell i{position:absolute;left:0;top:0;bottom:0;display:block;
+    background:linear-gradient(90deg,#1f86d8,#7fe3ff);}
+
+  /* ------- 导航按钮可点 ------- */
+  .nav-btn{cursor:pointer;user-select:none;}
+  .nav-btn:active{transform:translateY(1px);}
+  .col{display:grid;gap:12px;min-height:0;}
+  .col.left{grid-template-rows:238px 168px 1fr;}
+  .col.center{grid-template-rows:372px 1fr;}
+  .col.right{grid-template-rows:246px 214px 1fr;}
+
+  /* ------- 面板通用 ------- */
+  .panel{
+    position:relative;min-height:0;display:flex;flex-direction:column;
+    background:linear-gradient(165deg,rgba(14,52,104,.5),rgba(5,18,38,.72));
+    border:1px solid rgba(56,140,220,.34);
+    box-shadow:0 0 22px rgba(0,80,160,.18) inset,0 4px 18px rgba(0,0,0,.4);
+    border-radius:2px;
+  }
+  .panel::before,.panel::after{
+    content:"";position:absolute;width:15px;height:15px;pointer-events:none;
+    border:2px solid #3fc9ff;opacity:.95;
+  }
+  .panel::before{left:-1px;top:-1px;border-right:0;border-bottom:0;}
+  .panel::after{right:-1px;bottom:-1px;border-left:0;border-top:0;}
+  .p-hd{
+    flex:0 0 auto;height:40px;display:flex;align-items:center;gap:9px;padding:0 14px;
+    position:relative;
+  }
+  .p-hd::after{
+    content:"";position:absolute;left:14px;right:14px;bottom:0;height:1px;
+    background:linear-gradient(90deg,rgba(63,201,255,.85),rgba(63,201,255,.12) 60%,transparent);
+  }
+  .p-hd i{
+    width:4px;height:15px;border-radius:1px;
+    background:linear-gradient(180deg,#63dcff,#1673c8);
+    box-shadow:0 0 8px rgba(70,200,255,.85);
+    transform:skewX(-12deg);
+  }
+  .p-hd h2{
+    font-size:16px;font-weight:600;letter-spacing:2.5px;color:#d8efff;
+    text-shadow:0 0 12px rgba(80,190,255,.45);
+  }
+  .p-hd .en{font-size:10px;color:#4a7fa8;letter-spacing:.6px;margin-left:2px;
+    text-transform:uppercase;}
+  .p-hd .r{margin-left:auto;font-size:11.5px;color:#5d92bd;letter-spacing:.5px;display:flex;
+    align-items:center;gap:8px;}
+  .p-bd{flex:1 1 auto;min-height:0;position:relative;padding:8px 12px 10px;}
+  .chart{width:100%;height:100%;}
+
+  /* =================== 货量统计 =================== */
+  .inv-wrap{display:grid;grid-template-rows:1fr 62px;height:100%;}
+  .inv-nums{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;align-items:center;
+    padding:0 4px 2px;}
+  .inv-nums .cell{text-align:center;position:relative;}
+  .inv-nums .n{font-family:Consolas,monospace;font-size:25px;font-weight:700;line-height:1.1;
+    color:#4fd8ff;text-shadow:0 0 14px rgba(70,200,255,.6);}
+  .inv-nums .n.g{color:#3ff0c0;text-shadow:0 0 14px rgba(60,240,190,.5);}
+  .inv-nums .n.o{color:#ffc74b;text-shadow:0 0 14px rgba(255,190,60,.5);}
+  .inv-nums .t{font-size:11.5px;color:#7fa6c8;letter-spacing:.5px;margin-top:1px;}
+
+  /* =================== 人货场 =================== */
+  .hg-grid{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:8px;
+    height:100%;}
+  .hg-item{
+    position:relative;display:flex;align-items:center;gap:11px;padding:6px 10px;
+    border:1px solid rgba(56,140,220,.26);border-radius:2px;
+    background:linear-gradient(120deg,rgba(18,60,112,.55),rgba(8,26,50,.35));
+  }
+  .hg-item .ic{
+    width:34px;height:34px;flex:0 0 auto;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(circle,rgba(50,180,255,.30),rgba(10,40,80,.1));
+    border:1px solid rgba(70,200,255,.45);
+    box-shadow:0 0 14px rgba(50,180,255,.35) inset;
+  }
+  .hg-item .ic svg{width:17px;height:17px;stroke:#7fe0ff;fill:none;stroke-width:1.7;}
+  .hg-item .v{font-family:Consolas,monospace;font-size:22px;font-weight:700;color:#4fd8ff;
+    line-height:1;text-shadow:0 0 12px rgba(70,200,255,.55);}
+  .hg-item .k{font-size:11px;color:#7ba3c4;margin-top:4px;letter-spacing:.4px;}
+  .hg-item .bar{position:absolute;left:0;bottom:0;height:2px;width:100%;
+    background:linear-gradient(90deg,#2fd6ff,rgba(47,214,255,0));opacity:.7;}
+
+  /* =================== 订单表 =================== */
+  .tbl{width:100%;border-collapse:collapse;font-size:11.5px;}
+  .tbl thead th{
+    position:sticky;top:0;z-index:2;background:linear-gradient(180deg,#0c2b52,#0a2140);
+    color:#7fb9e2;font-weight:500;text-align:left;padding:6px 5px;font-size:11px;
+    letter-spacing:.2px;border-bottom:1px solid rgba(60,150,225,.45);white-space:nowrap;
+  }
+  .tbl tbody td{padding:5.5px 5px;color:#a9cbe8;border-bottom:1px dashed rgba(46,110,170,.22);
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .tbl tbody tr:nth-child(even){background:rgba(20,64,116,.16);}
+  .tbl tbody tr:hover{background:rgba(40,120,190,.22);}
+  .tbl .mono{font-family:Consolas,monospace;color:#6fd0ff;}
+  .tbl .num{font-family:Consolas,monospace;color:#8fd6ff;text-align:right;}
+  .tag{padding:1px 7px;border-radius:9px;font-size:10.5px;letter-spacing:.2px;}
+  .t-wait{background:rgba(255,190,60,.16);color:#ffc74b;border:1px solid rgba(255,190,60,.45);}
+  .t-out{background:rgba(50,220,170,.14);color:#3ff0c0;border:1px solid rgba(60,230,180,.42);}
+  .t-ing{background:rgba(70,175,255,.16);color:#6fc6ff;border:1px solid rgba(80,180,255,.45);}
+  .scroll{overflow-y:auto;height:100%;}
+  .scroll::-webkit-scrollbar{width:5px;}
+  .scroll::-webkit-scrollbar-thumb{background:rgba(60,160,230,.5);border-radius:3px;}
+  .scroll::-webkit-scrollbar-track{background:rgba(10,30,55,.4);}
+
+  /* =================== 监控画面 =================== */
+  .cam-wrap{display:grid;grid-template-columns:1.62fr 1fr;grid-template-rows:1fr 1fr;
+    gap:8px;height:100%;}
+  .cam{position:relative;border:1px solid rgba(56,150,220,.42);border-radius:2px;
+    overflow:hidden;background:#040c14;}
+  .cam.big{grid-row:1 / 3;}
+  .cam video,.cam img{width:100%;height:100%;object-fit:cover;display:block;}
+  .cam .lbl{
+    position:absolute;left:7px;top:7px;padding:2px 8px;font-size:10.5px;letter-spacing:.6px;
+    color:#bfe9ff;background:rgba(6,24,44,.72);border:1px solid rgba(70,180,240,.45);
+    border-radius:2px;backdrop-filter:blur(2px);z-index:3;
+  }
+  .cam .live{
+    position:absolute;right:7px;top:8px;font-size:10px;color:#ff8a96;letter-spacing:1px;
+    display:flex;align-items:center;gap:5px;z-index:3;
+    background:rgba(6,24,44,.6);padding:2px 7px;border-radius:2px;
+  }
+  .cam .live em{width:6px;height:6px;border-radius:50%;background:#ff5a6e;
+    box-shadow:0 0 8px #ff5a6e;animation:blink 1.2s infinite;}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+  .cam .scanline{
+    position:absolute;inset:0;pointer-events:none;z-index:2;
+    background:repeating-linear-gradient(180deg,rgba(120,200,255,.055) 0 1px,transparent 1px 3px);
+  }
+  .cam .corner{position:absolute;width:12px;height:12px;border:1.5px solid #4fd0ff;z-index:3;}
+  .cam .corner.a{left:4px;top:4px;border-right:0;border-bottom:0;}
+  .cam .corner.b{right:4px;top:4px;border-left:0;border-bottom:0;}
+  .cam .corner.c{left:4px;bottom:4px;border-right:0;border-top:0;}
+  .cam .corner.d{right:4px;bottom:4px;border-left:0;border-top:0;}
+
+  /* =================== 出入库 =================== */
+  .io-wrap{display:grid;grid-template-columns:150px 1fr;gap:8px;height:100%;}
+  .io-nums{display:grid;grid-template-rows:repeat(3,1fr);gap:8px;}
+  .io-cell{
+    position:relative;border:1px solid rgba(56,140,220,.3);border-radius:2px;
+    background:linear-gradient(140deg,rgba(18,62,116,.62),rgba(7,24,46,.42));
+    display:flex;flex-direction:column;justify-content:center;padding:0 12px;overflow:hidden;
+  }
+  .io-cell::after{content:"";position:absolute;right:-24px;top:-24px;width:74px;height:74px;
+    border-radius:50%;background:radial-gradient(circle,rgba(60,190,255,.22),transparent 70%);}
+  .io-cell .k{font-size:11px;color:#7fa6c8;letter-spacing:.6px;}
+  .io-cell .v{font-family:Consolas,monospace;font-size:27px;font-weight:700;line-height:1.15;
+    color:#4fd8ff;text-shadow:0 0 14px rgba(70,200,255,.55);}
+  .io-cell .v.o{color:#ffc74b;text-shadow:0 0 14px rgba(255,190,60,.5);}
+  .io-cell .v.g{color:#3ff0c0;text-shadow:0 0 14px rgba(60,240,190,.5);}
+  .io-cell .v small{font-size:11px;color:#7fa6c8;margin-left:3px;font-weight:400;}
+
+  /* =================== 设备统计 =================== */
+  .dev-wrap{position:relative;height:100%;}
+  .dev-nums{position:absolute;inset:0;pointer-events:none;}
+  .dev-nums .d{position:absolute;text-align:left;}
+  .dev-nums .d .n{font-family:Consolas,monospace;font-size:22px;font-weight:700;line-height:1.1;}
+  .dev-nums .d .k{font-size:11px;color:#7fa6c8;margin-top:2px;letter-spacing:.3px;}
+  .dev-nums .d.tl{left:2px;top:4px;}
+  .dev-nums .d.tr{right:2px;top:4px;text-align:right;}
+  .dev-nums .d.bl{left:2px;bottom:6px;}
+  .dev-nums .d.br{right:2px;bottom:6px;text-align:right;}
+
+  /* =================== 告警 =================== */
+  .alarm-item{
+    display:grid;grid-template-columns:auto 1fr;gap:8px;padding:6px 8px;margin-bottom:5px;
+    border-left:2px solid rgba(255,90,110,.65);
+    background:linear-gradient(90deg,rgba(70,20,34,.42),rgba(20,12,26,.12));
+    border-radius:0 2px 2px 0;
+  }
+  .alarm-item.lv2{border-left-color:rgba(255,190,60,.75);
+    background:linear-gradient(90deg,rgba(72,52,14,.4),rgba(24,20,10,.1));}
+  .alarm-item.lv3{border-left-color:rgba(70,180,255,.7);
+    background:linear-gradient(90deg,rgba(14,44,80,.45),rgba(10,22,38,.1));}
+  .alarm-item .tm{font-family:Consolas,monospace;font-size:10.5px;color:#6b93b6;
+    white-space:nowrap;padding-top:1px;}
+  .alarm-item .ct{font-size:11.5px;color:#b6d2ea;line-height:1.42;}
+  .alarm-item .src{font-size:10px;color:#5f8bab;margin-top:2px;}
+
+  /* =================== 底部导航 =================== */
+  footer{
+    flex:0 0 auto;height:60px;display:flex;align-items:center;justify-content:center;gap:14px;
+    position:relative;
+  }
+  .nav-btn{
+    position:relative;min-width:132px;height:34px;display:flex;align-items:center;
+    justify-content:center;font-size:14px;letter-spacing:2px;color:#8fc6ee;cursor:pointer;
+    background:linear-gradient(180deg,rgba(22,70,130,.55),rgba(8,26,50,.55));
+    border:1px solid rgba(60,150,225,.45);border-radius:2px;
+    clip-path:polygon(9px 0,100% 0,100% calc(100% - 9px),calc(100% - 9px) 100%,0 100%,0 9px);
+    transition:.2s;
+  }
+  .nav-btn:hover{color:#cdeeff;border-color:#4fd0ff;
+    box-shadow:0 0 16px rgba(60,190,255,.35);}
+  .nav-btn.on{
+    color:#04121f;font-weight:700;
+    background:linear-gradient(180deg,#8ee6ff,#2aa8e8);
+    border-color:#9feaff;box-shadow:0 0 20px rgba(80,200,255,.55);
+  }
+  .foot-glow{
+    position:absolute;left:0;right:0;bottom:0;height:74px;pointer-events:none;
+    background:radial-gradient(60% 120% at 50% 100%,rgba(30,140,240,.30),transparent 72%);
+  }
+  .foot-line{position:absolute;left:50%;transform:translateX(-50%);bottom:38px;width:1520px;
+    height:1px;background:linear-gradient(90deg,transparent,rgba(90,190,255,.5),transparent);}
+
+  /* 点位徽标 */
+  .chip{padding:3px 10px;border:1px solid rgba(70,170,240,.4);border-radius:10px;
+    background:rgba(16,52,96,.55);color:#8fd0ff;font-size:11.5px;letter-spacing:.4px;}
+
+/* ================= 点位数据视图 ================= */
+.pts-toolbar{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:0 2px 9px;}
+.pts-in{background:rgba(10,34,60,.72);border:1px solid rgba(70,170,240,.34);border-radius:3px;
+  color:#cde9ff;font-size:12px;padding:5px 10px;width:210px;outline:none;font-family:inherit;}
+.pts-in:focus{border-color:#4fd0ff;box-shadow:0 0 0 2px rgba(79,208,255,.14);}
+.pts-in::placeholder{color:#5d86a8;}
+.pts-sel{background:rgba(10,34,60,.72);border:1px solid rgba(70,170,240,.34);border-radius:3px;
+  color:#a9dcff;font-size:12px;padding:5px 8px;outline:none;font-family:inherit;cursor:pointer;}
+.pts-sel:focus{border-color:#4fd0ff;}
+.pts-chip{padding:4px 11px;border:1px solid rgba(70,170,240,.36);border-radius:12px;
+  font-size:11.5px;color:#8fc4e6;cursor:pointer;user-select:none;transition:.16s;}
+.pts-chip:hover{color:#cdeeff;border-color:#4fd0ff;}
+.pts-chip.on{background:rgba(40,150,240,.26);border-color:#4fd0ff;color:#d8f2ff;
+  box-shadow:inset 0 0 10px rgba(79,208,255,.22);}
+.pts-btn{padding:4px 12px;border:1px solid rgba(70,170,240,.42);border-radius:3px;
+  font-size:11.5px;color:#a9dcff;cursor:pointer;user-select:none;background:transparent;
+  font-family:inherit;transition:.16s;}
+.pts-btn:hover{color:#e7faff;border-color:#4fd0ff;background:rgba(60,160,240,.18);}
+.pts-btn:active{transform:translateY(1px);}
+.pts-count{margin-left:auto;font-size:11.5px;color:#7fb9e2;font-family:Consolas,monospace;}
+.pts-pager{display:flex;align-items:center;gap:6px;justify-content:flex-end;padding:8px 2px 0;}
+.pts-pager .pg{min-width:26px;height:24px;line-height:22px;text-align:center;padding:0 7px;
+  border:1px solid rgba(70,170,240,.34);border-radius:3px;font-size:11.5px;color:#8fc4e6;
+  cursor:pointer;font-family:Consolas,monospace;user-select:none;transition:.14s;}
+.pts-pager .pg:hover{color:#d8f2ff;border-color:#4fd0ff;background:rgba(60,160,240,.16);}
+.pts-pager .pg.on{background:rgba(40,150,240,.3);border-color:#4fd0ff;color:#e7faff;}
+.pts-pager .pg.dis{opacity:.35;cursor:not-allowed;}
+.pts-pager .pg.dot{border:none;cursor:default;opacity:.6;}
+.pts-tbl thead th{cursor:pointer;user-select:none;white-space:nowrap;}
+.pts-tbl thead th:hover{color:#cdeeff;}
+.pts-tbl th .ar{opacity:.45;font-size:9px;margin-left:3px;}
+.pts-tbl tbody tr{cursor:pointer;}
+.pts-tbl tbody td{white-space:nowrap;}
+.tag-t{display:inline-block;padding:1px 7px;border-radius:9px;font-size:10.5px;line-height:16px;}
+.tag-t.bool{background:rgba(120,200,255,.16);color:#7fd0ff;border:1px solid rgba(120,200,255,.3);}
+.tag-t.num{background:rgba(63,240,192,.13);color:#3ff0c0;border:1px solid rgba(63,240,192,.28);}
+.tag-t.str{background:rgba(255,190,90,.14);color:#ffbe5a;border:1px solid rgba(255,190,90,.3);}
+.tag-rw{display:inline-block;padding:1px 7px;border-radius:9px;font-size:10.5px;line-height:16px;}
+.tag-rw.ro{background:rgba(140,160,180,.14);color:#9db4c8;border:1px solid rgba(140,160,180,.26);}
+.tag-rw.rwx{background:rgba(255,107,125,.14);color:#ff8b98;border:1px solid rgba(255,107,125,.3);}
+/* 相机可点 */
+.cam{position:relative;cursor:pointer;}
+.cam::after{content:"点击放大";position:absolute;right:7px;bottom:7px;font-size:10px;
+  color:#8fd6ff;background:rgba(6,20,36,.68);border:1px solid rgba(70,170,240,.4);
+  border-radius:3px;padding:1px 6px;opacity:0;transition:.18s;z-index:3;}
+.cam:hover::after{opacity:1;}
+/* 灯箱 */
+.lb{position:fixed;inset:0;z-index:99;background:rgba(3,10,20,.92);display:none;
+  align-items:center;justify-content:center;padding:36px;}
+.lb.on{display:flex;}
+.lb img{max-width:92vw;max-height:82vh;border:1px solid rgba(79,208,255,.4);border-radius:4px;
+  box-shadow:0 0 60px rgba(40,150,240,.35);}
+.lb .lb-x{position:absolute;top:20px;right:30px;font-size:26px;color:#8fd6ff;cursor:pointer;line-height:1;}
+.lb .lb-x:hover{color:#fff;}
+.lb .lb-cap{position:absolute;bottom:20px;left:0;right:0;text-align:center;font-size:13px;
+  color:#a9dcff;letter-spacing:1px;}
+/* 模态 */
+.md{position:fixed;inset:0;z-index:98;background:rgba(3,10,20,.84);display:none;
+  align-items:center;justify-content:center;padding:36px;}
+.md.on{display:flex;}
+.md-box{width:min(580px,92vw);background:linear-gradient(180deg,#0b2440,#081a2e);
+  border:1px solid rgba(79,208,255,.38);border-radius:6px;box-shadow:0 0 50px rgba(40,150,240,.3);}
+.md-hd{display:flex;align-items:center;padding:12px 16px;border-bottom:1px solid rgba(60,140,210,.3);
+  font-size:14px;color:#cde9ff;letter-spacing:1px;}
+.md-hd .x{margin-left:auto;cursor:pointer;color:#8fd6ff;font-size:18px;line-height:1;}
+.md-hd .x:hover{color:#fff;}
+.md-bd{padding:14px 16px;font-size:12.5px;color:#a9cbe8;line-height:2;}
+.md-bd b{color:#8fd6ff;font-weight:500;}
+/* toast */
+.toast{position:fixed;left:50%;bottom:84px;transform:translateX(-50%) translateY(14px);
+  background:rgba(10,40,70,.96);border:1px solid rgba(79,208,255,.5);border-radius:4px;
+  padding:9px 20px;font-size:12.5px;color:#d8f2ff;opacity:0;pointer-events:none;
+  transition:.24s;z-index:120;box-shadow:0 0 26px rgba(40,150,240,.34);}
+.toast.on{opacity:1;transform:translateX(-50%) translateY(0);}
+
+
+.cam .camfail{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:6px;text-align:center;
+  background:repeating-linear-gradient(45deg,rgba(20,40,64,.9) 0 10px,rgba(14,30,50,.9) 10px 20px);}
+.cam .camfail b{color:#ffbe5a;font-size:13px;letter-spacing:1px;font-weight:600;}
+.cam .camfail span{color:#7fb9e2;font-size:11.5px;line-height:1.7;}
+.cam .camfail code{color:#8fd6ff;background:rgba(10,34,60,.8);padding:1px 5px;border-radius:2px;font-size:11px;}
+</style>
+</head>
+<body>
+<div id="stage">
+  <!-- ==================== 顶部 ==================== -->
+  <header>
+    <svg class="wing l" viewBox="0 0 520 34" preserveAspectRatio="none">
+      <defs><linearGradient id="wg" x1="1" y1="0" x2="0" y2="0">
+        <stop offset="0" stop-color="#4fd0ff" stop-opacity=".85"/>
+        <stop offset="1" stop-color="#4fd0ff" stop-opacity="0"/>
+      </linearGradient></defs>
+      <path d="M520 17 L300 17" stroke="url(#wg)" stroke-width="2"/>
+      <path d="M520 8 L360 8" stroke="url(#wg)" stroke-width="1" opacity=".7"/>
+      <path d="M520 26 L360 26" stroke="url(#wg)" stroke-width="1" opacity=".7"/>
+      <path d="M300 17 L268 6 L240 17 L268 28 Z" fill="none" stroke="#4fd0ff" stroke-width="1.2" opacity=".8"/>
+    </svg>
+    <svg class="wing r" viewBox="0 0 520 34" preserveAspectRatio="none">
+      <path d="M520 17 L300 17" stroke="url(#wg)" stroke-width="2"/>
+      <path d="M520 8 L360 8" stroke="url(#wg)" stroke-width="1" opacity=".7"/>
+      <path d="M520 26 L360 26" stroke="url(#wg)" stroke-width="1" opacity=".7"/>
+      <path d="M300 17 L268 6 L240 17 L268 28 Z" fill="none" stroke="#4fd0ff" stroke-width="1.2" opacity=".8"/>
+    </svg>
+    <div class="h-left"><span class="ico"></span>物流模块 · 智慧物流</div>
+    <h1>HT 智慧物流数据平台<span class="dot">·</span>物流看板</h1>
+    <div class="h-right">
+      <span class="chip" id="pt-chip">点位 166</span>
+      <span id="clock">2026-10-21 14:09:03</span>
+      <span class="h-btn" id="h-refresh">刷新数据</span><span class="h-btn" id="h-full">全屏</span><span class="h-btn" id="h-export">导出报表</span><span class="h-btn" id="h-set">系统设置</span>
+    </div>
+  </header>
+
+  <!-- ==================== 主体 ==================== -->
+  <main>
+    <section class="view on" data-view="home" id="view-home">
+    <!-- ---------------- 左列 ---------------- -->
+    <div class="col left">
+      <div class="panel">
+        <div class="p-hd"><i></i><h2>货量统计</h2><span class="en">Cargo Flow</span>
+          <span class="r" id="inv-date">--</span></div>
+        <div class="p-bd">
+          <div class="inv-wrap">
+            <div id="c-inv" class="chart"></div>
+            <div class="inv-nums">
+              <div class="cell"><div class="n" id="inv-cap">--</div><div class="t">总容量(件)</div></div>
+              <div class="cell"><div class="n g" id="inv-stock">--</div><div class="t">当前存量</div></div>
+              <div class="cell"><div class="n o" id="inv-use">--</div><div class="t">容量利用率</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="p-hd"><i></i><h2>人货场统计</h2><span class="en">People / Goods / Site</span></div>
+        <div class="p-bd">
+          <div class="hg-grid">
+            <div class="hg-item">
+              <div class="ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.4"/><path d="M4.5 20c0-4.1 3.4-6.6 7.5-6.6s7.5 2.5 7.5 6.6"/></svg></div>
+              <div><div class="v" id="hg-on">--</div><div class="k">当日拣货人员</div></div>
+              <div class="bar"></div>
+            </div>
+            <div class="hg-item">
+              <div class="ic"><svg viewBox="0 0 24 24"><path d="M4 8h11v8H4z"/><path d="M15 11h3l2 3v2h-5z"/><circle cx="7.5" cy="17.5" r="1.8"/><circle cx="17" cy="17.5" r="1.8"/></svg></div>
+              <div><div class="v" id="hg-pick">--</div><div class="k">当日拣货人次</div></div>
+              <div class="bar"></div>
+            </div>
+            <div class="hg-item">
+              <div class="ic"><svg viewBox="0 0 24 24"><path d="M3 17h18"/><path d="M6 17V9l6-4 6 4v8"/><path d="M9.5 17v-4h5v4"/></svg></div>
+              <div><div class="v" id="hg-veh">--</div><div class="k">在岗堆高车/AGV</div></div>
+              <div class="bar"></div>
+            </div>
+            <div class="hg-item">
+              <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v6c0 4-3.4 6.8-8 8-4.6-1.2-8-4-8-8V7z"/><path d="M9 12l2 2 4-4"/></svg></div>
+              <div><div class="v" id="hg-dev">--</div><div class="k">在线设备点位</div></div>
+              <div class="bar"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="p-hd"><i></i><h2>订单详情</h2><span class="en">Picking List</span>
+          <span class="r" id="order-chip">--</span></div>
+        <div class="p-bd" style="padding:6px 10px 8px;">
+          <div class="scroll">
+            <table class="tbl" id="order-tbl">
+              <thead><tr>
+                <th style="width:30px">序号</th><th style="width:52px">单号</th>
+                <th style="width:64px">料号</th><th>产品名称</th>
+                <th style="width:54px">批次</th><th style="width:50px;text-align:right">数量</th>
+                <th style="width:58px">状态</th>
+              </tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------------- 中列 ---------------- -->
+    <div class="col center">
+      <div class="panel">
+        <div class="p-hd"><i></i><h2>监控画面</h2><span class="en">Live Camera</span>
+          <span class="r"><em style="width:6px;height:6px;border-radius:50%;background:#ff5a6e;
+            display:inline-block;box-shadow:0 0 8px #ff5a6e"></em>3 路在线</span></div>
+        <div class="p-bd" style="padding:8px 10px 10px;">
+          <div class="cam-wrap">
+            <div class="cam big">
+              <img src="media/cam01.jpg" alt="CAM-01 货架巷道 实时画面" onerror="window.camFail&&camFail(this)">
+              <div class="scanline"></div>
+              <div class="lbl">CAM-01 货架巷道</div>
+              <div class="live"><em></em>LIVE</div>
+              <span class="corner a"></span><span class="corner b"></span>
+              <span class="corner c"></span><span class="corner d"></span>
+            </div>
+            <div class="cam">
+              <img src="media/cam02.jpg" alt="CAM-02 输送线分拣 实时画面" onerror="window.camFail&&camFail(this)">
+              <div class="scanline"></div>
+              <div class="lbl">CAM-02 输送线分拣</div>
+              <span class="corner a"></span><span class="corner b"></span>
+              <span class="corner c"></span><span class="corner d"></span>
+            </div>
+            <div class="cam">
+              <img src="media/cam03.jpg" alt="CAM-03 叉车作业区 实时画面" onerror="window.camFail&&camFail(this)">
+              <div class="scanline"></div>
+              <div class="lbl">CAM-03 叉车作业区</div>
+              <span class="corner a"></span><span class="corner b"></span>
+              <span class="corner c"></span><span class="corner d"></span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="p-hd"><i></i><h2>出入库数据统计</h2><span class="en">Inbound / Outbound</span>
+          <span class="r" id="io-date">--</span></div>
+        <div class="p-bd" style="padding:8px 12px 10px;">
+          <div class="io-wrap">
+            <div class="io-nums">
+              <div class="io-cell"><div class="k">当日入库量</div>
+                <div class="v" id="io-in">--<small>件</small></div></div>
+              <div class="io-cell"><div class="k">当日出库量</div>
+                <div class="v o" id="io-out">--<small>件</small></div></div>
+              <div class="io-cell"><div class="k">当日结存量</div>
+                <div class="v g" id="io-stock">--<small>件</small></div></div>
+            </div>
+            <div id="c-io" class="chart"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------------- 右列 ---------------- -->
+    <div class="col right">
+      <div class="panel">
+        <div class="p-hd"><i></i><h2>设备统计</h2><span class="en">Devices</span>
+          <span class="r" id="dev-total">--</span></div>
+        <div class="p-bd" style="padding:6px 10px 8px;">
+          <div class="dev-wrap">
+            <div id="c-dev" class="chart"></div>
+            <div class="dev-nums">
+              <div class="d tl"><div class="n" style="color:#3ff0c0" id="dev-normal">--</div>
+                <div class="k">正常设备</div></div>
+              <div class="d tr"><div class="n" style="color:#6fc6ff" id="dev-standby">--</div>
+                <div class="k">待机设备</div></div>
+              <div class="d bl"><div class="n" style="color:#ffc74b" id="dev-offline">--</div>
+                <div class="k">离线设备</div></div>
+              <div class="d br"><div class="n" style="color:#ff6b7d" id="dev-fault">--</div>
+                <div class="k">故障设备</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="p-hd"><i></i><h2>温湿度</h2><span class="en">Temperature / Humidity</span>
+          <span class="r" id="env-now">--</span></div>
+        <div class="p-bd" style="padding:4px 10px 8px;"><div id="c-env" class="chart"></div></div>
+      </div>
+
+      <div class="panel">
+        <div class="p-hd"><i></i><h2>告警信息</h2><span class="en">Alarm</span>
+          <span class="r" id="alarm-chip">--</span></div>
+        <div class="p-bd" style="padding:8px 10px 6px;">
+          <div class="scroll" id="alarm-list" style="padding-right:2px;"></div>
+        </div>
+      </div>
+    </div>
+    </section>
+
+    <!-- ================= 视图：出入库统计 ================= -->
+    <section class="view" data-view="io" id="view-io">
+      <div class="kpi-row">
+        <div class="kpi"><div class="k-l">当日入库量</div>
+          <div class="k-v" id="v-io-in">--<small>件</small></div>
+          <div class="k-s" id="v-io-in-s">较昨日 --</div></div>
+        <div class="kpi o"><div class="k-l">当日出库量</div>
+          <div class="k-v" id="v-io-out">--<small>件</small></div>
+          <div class="k-s" id="v-io-out-s">较昨日 --</div></div>
+        <div class="kpi g"><div class="k-l">当日净流入</div>
+          <div class="k-v" id="v-io-net">--<small>件</small></div>
+          <div class="k-s">入库 − 出库</div></div>
+        <div class="kpi"><div class="k-l">当日结存量</div>
+          <div class="k-v" id="v-io-stock">--<small>件</small></div>
+          <div class="k-s" id="v-io-date">--</div></div>
+      </div>
+      <div class="panel" style="flex:1.15;min-height:0;">
+        <div class="p-hd"><i></i><h2>近 7 日出入库趋势</h2>
+          <span class="en">7-Day Inbound / Outbound</span></div>
+        <div class="p-bd" style="padding:6px 12px 8px;flex:1;min-height:0;">
+          <div id="c-io7" class="chart" style="height:100%;"></div></div>
+      </div>
+      <div class="panel" style="flex:1;min-height:0;">
+        <div class="p-hd"><i></i><h2>分时段明细</h2>
+          <span class="en">Slot Detail</span>
+          <span class="r" id="v-io-slot-sum">--</span></div>
+        <div class="p-bd" style="padding:4px 12px 8px;flex:1;min-height:0;overflow:auto;">
+          <table class="dt-tbl" id="v-io-tbl">
+            <thead><tr>
+              <th>时段</th><th class="num">入库(件)</th><th class="num">出库(件)</th>
+              <th class="num">净差</th><th style="width:130px;">入库占比</th>
+              <th class="num">累计入库</th>
+            </tr></thead><tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= 视图：流量分析 ================= -->
+    <section class="view" data-view="flow" id="view-flow">
+      <div style="display:grid;gap:12px;grid-template-rows:minmax(0,1fr) auto;min-height:0;">
+        <div class="panel" style="min-height:0;">
+          <div class="p-hd"><i></i><h2>每日净流量</h2>
+            <span class="en">Daily Net Flow</span></div>
+          <div class="p-bd" style="padding:6px 10px 8px;flex:1;min-height:0;">
+            <div id="c-flow-net" class="chart" style="height:100%;"></div></div>
+        </div>
+        <div class="panel" style="min-height:0;">
+          <div class="p-hd"><i></i><h2>7 日流量明细</h2>
+            <span class="en">7-Day Detail</span>
+            <span class="r" id="v-fl-sum">--</span></div>
+          <div class="p-bd" style="padding:4px 12px 8px;flex:1;min-height:0;overflow:auto;">
+            <table class="dt-tbl" id="v-fl-tbl">
+              <thead><tr>
+                <th>日期</th><th class="num">入库(件)</th><th class="num">出库(件)</th>
+                <th class="num">净流量</th><th style="width:110px;">出入比</th>
+              </tr></thead><tbody></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+      <div style="display:grid;gap:12px;grid-template-rows:auto 1fr;min-height:0;">
+        <div class="kpi-row" style="grid-template-columns:1fr 1fr;">
+          <div class="kpi"><div class="k-l">7 日累计入库</div>
+            <div class="k-v" id="v-fl-in">--<small>件</small></div></div>
+          <div class="kpi o"><div class="k-l">7 日累计出库</div>
+            <div class="k-v" id="v-fl-out">--<small>件</small></div></div>
+          <div class="kpi g"><div class="k-l">日均入库</div>
+            <div class="k-v" id="v-fl-avg-in">--<small>件</small></div></div>
+          <div class="kpi g"><div class="k-l">流量均衡度</div>
+            <div class="k-v" id="v-fl-bal">--<small>%</small></div>
+            <div class="k-s">出库 / 入库</div></div>
+        </div>
+        <div class="panel" style="min-height:0;">
+          <div class="p-hd"><i></i><h2>时段流量对比</h2>
+            <span class="en">Slot Comparison</span></div>
+          <div class="p-bd" style="padding:6px 10px 8px;flex:1;min-height:0;">
+            <div id="c-flow-slot" class="chart" style="height:100%;"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= 视图：设备分析 ================= -->
+    <section class="view" data-view="dev" id="view-dev">
+      <div class="kpi-row" style="margin-bottom:12px;">
+        <div class="kpi"><div class="k-l">点位总数</div>
+          <div class="k-v" id="v-dv-total">--<small>个</small></div></div>
+        <div class="kpi g"><div class="k-l">正常设备</div>
+          <div class="k-v" id="v-dv-normal">--<small>个</small></div></div>
+        <div class="kpi o"><div class="k-l">待机 / 离线</div>
+          <div class="k-v" id="v-dv-standby">--</div>
+          <div class="k-s" id="v-dv-offline">离线 --</div></div>
+        <div class="kpi r"><div class="k-l">故障设备</div>
+          <div class="k-v" id="v-dv-fault">--<small>个</small></div></div>
+        <div class="kpi g"><div class="k-l">在线率</div>
+          <div class="k-v" id="v-dv-rate">--<small>%</small></div>
+          <div class="k-s">(总数−离线)/总数</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:420px 1fr;gap:12px;flex:1;min-height:0;">
+        <div class="panel">
+          <div class="p-hd"><i></i><h2>状态分布</h2>
+            <span class="en">Status Split</span></div>
+          <div class="p-bd" style="padding:4px 10px 8px;flex:1;min-height:0;">
+            <div id="c-dev2" class="chart" style="height:100%;"></div></div>
+        </div>
+        <div class="panel">
+          <div class="p-hd"><i></i><h2>各单元设备状态</h2>
+            <span class="en">By Unit</span></div>
+          <div class="p-bd" style="padding:6px 10px 8px;flex:1;min-height:0;">
+            <div id="c-devbar" class="chart" style="height:100%;"></div></div>
+        </div>
+      </div>
+      <div class="panel" style="flex:1;min-height:0;">
+        <div class="p-hd"><i></i><h2>设备单元明细</h2>
+          <span class="en">Unit Detail</span>
+          <span class="r" id="v-dv-units">--</span></div>
+        <div class="p-bd" style="padding:4px 12px 8px;flex:1;min-height:0;overflow:auto;">
+          <table class="dt-tbl" id="v-dv-tbl">
+            <thead><tr>
+              <th>单元</th><th>设备名称</th><th class="num">正常</th>
+              <th class="num">待机</th><th class="num">离线</th><th class="num">故障</th>
+              <th class="num">合计</th><th style="width:120px;">健康度</th>
+            </tr></thead><tbody></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= 视图：业务系统 ================= -->
+    <section class="view" data-view="sys" id="view-sys">
+      <div style="display:grid;gap:12px;grid-template-rows:auto minmax(0,1fr);min-height:0;">
+        <div class="panel">
+          <div class="p-hd"><i></i><h2>数据接口健康</h2>
+            <span class="en">API Health</span>
+            <span class="r" id="v-sy-status">--</span></div>
+          <div class="p-bd" style="padding:4px 12px 8px;">
+            <table class="dt-tbl" id="v-sy-tbl">
+              <thead><tr>
+                <th style="width:34px;"></th><th>业务模块</th><th>数据表</th>
+                <th class="num">记录数</th><th class="num">状态</th>
+              </tr></thead><tbody></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel" style="min-height:0;">
+          <div class="p-hd"><i></i><h2>各数据表记录数</h2>
+            <span class="en">Records by Table</span></div>
+          <div class="p-bd" style="padding:6px 10px 8px;flex:1;min-height:0;">
+            <div id="c-sy-rows" class="chart" style="height:100%;"></div></div>
+        </div>
+      </div>
+      <div style="display:grid;gap:12px;grid-template-rows:auto auto minmax(0,1fr);min-height:0;">
+        <div class="kpi-row" style="grid-template-columns:1fr 1fr;">
+          <div class="kpi g"><div class="k-l">接口可用</div>
+            <div class="k-v" id="v-sy-ok">--</div>
+            <div class="k-s" id="v-sy-ok-s">共 -- 项</div></div>
+          <div class="kpi"><div class="k-l">运行时长</div>
+            <div class="k-v" id="v-sy-up">--</div>
+            <div class="k-s" id="v-sy-ver">版本 --</div></div>
+          <div class="kpi"><div class="k-l">点位总数</div>
+            <div class="k-v" id="v-sy-pt">--<small>个</small></div></div>
+          <div class="kpi o"><div class="k-l">未处理告警</div>
+            <div class="k-v" id="v-sy-alarm">--<small>条</small></div></div>
+        </div>
+        <div class="panel">
+          <div class="p-hd"><i></i><h2>点位单元分布</h2>
+            <span class="en">Point Units</span></div>
+          <div class="p-bd" style="padding:4px 12px 8px;">
+            <table class="dt-tbl" id="v-sy-unit">
+              <thead><tr><th>单元编码</th><th>单元名称</th>
+                <th class="num">点位数</th><th style="width:120px;">占比</th></tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="panel" style="min-height:0;">
+          <div class="p-hd"><i></i><h2>点位占比</h2>
+            <span class="en">Share by Unit</span></div>
+          <div class="p-bd" style="padding:6px 10px 8px;flex:1;min-height:0;">
+            <div id="c-sy-pie" class="chart" style="height:100%;"></div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ================= 视图：点位数据 ================= -->
+    <section class="view" data-view="pts" id="view-pts">
+      <div class="kpi-row" style="margin-bottom:12px;">
+        <div class="kpi"><div class="k-l">点位总数</div>
+          <div class="k-v" id="v-pt-total">--<small>个</small></div>
+          <div class="k-s">取自点位表</div></div>
+        <div class="kpi g"><div class="k-l">单元数</div>
+          <div class="k-v" id="v-pt-units">--<small>个</small></div>
+          <div class="k-s">PLC / 设备单元</div></div>
+        <div class="kpi"><div class="k-l">数据类型</div>
+          <div class="k-v" id="v-pt-types">--<small>类</small></div>
+          <div class="k-s" id="v-pt-typelist">--</div></div>
+        <div class="kpi o"><div class="k-l">可写点位</div>
+          <div class="k-v" id="v-pt-rw">--<small>个</small></div>
+          <div class="k-s" id="v-pt-ro">只读 --</div></div>
+        <div class="kpi g"><div class="k-l">PLC 站点</div>
+          <div class="k-v" id="v-pt-ip">--<small>个</small></div>
+          <div class="k-s">独立 IP 数</div></div>
+      </div>
+
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) 372px;gap:12px;min-height:0;height:100%;">
+        <div class="panel">
+          <div class="p-hd"><i></i><h2>各单元点位分布</h2>
+            <span class="en">Points by Unit</span>
+            <span class="r" id="v-pt-unitmax">--</span></div>
+          <div class="p-bd" style="padding:4px 10px 6px;flex:1;min-height:0;">
+            <div id="c-pt-unit" class="chart" style="height:100%;"></div></div>
+        </div>
+        <div class="panel">
+          <div class="p-hd"><i></i><h2>数据类型构成</h2>
+            <span class="en">Data Type</span></div>
+          <div class="p-bd" style="padding:4px 10px 6px;flex:1;min-height:0;">
+            <div id="c-pt-type" class="chart" style="height:100%;"></div></div>
+        </div>
+      </div>
+
+      <div class="panel" style="min-height:0;">
+        <div class="p-hd"><i></i><h2>点位明细数据表</h2>
+          <span class="en">Point Detail</span>
+          <span class="r" id="v-pt-summary">--</span></div>
+        <div class="p-bd" style="padding:6px 12px 8px;flex:1;min-height:0;display:flex;flex-direction:column;">
+          <div class="pts-toolbar">
+            <input class="pts-in" id="pt-q" placeholder="搜索点位名 / 中文名 / 地址…">
+            <select class="pts-sel" id="pt-unit"><option value="">全部单元</option></select>
+            <select class="pts-sel" id="pt-type"><option value="">全部类型</option></select>
+            <span class="pts-chip on" data-rw="">全部</span>
+            <span class="pts-chip" data-rw="read-only">只读</span>
+            <span class="pts-chip" data-rw="read-write">可写</span>
+            <button class="pts-btn" id="pt-reset">重置</button>
+            <button class="pts-btn" id="pt-csv">导出 CSV</button>
+            <span class="pts-count" id="pt-count">--</span>
+          </div>
+          <div style="flex:1;min-height:0;overflow:auto;">
+            <table class="dt-tbl pts-tbl" id="pt-tbl">
+              <thead><tr>
+                <th data-sk="id" style="width:50px;">#<span class="ar"></span></th>
+                <th data-sk="unit_code">单元<span class="ar"></span></th>
+                <th data-sk="unit_name">单元名称<span class="ar"></span></th>
+                <th data-sk="station">PLC 站<span class="ar"></span></th>
+                <th data-sk="plc_ip">IP<span class="ar"></span></th>
+                <th data-sk="point_name">点位名<span class="ar"></span></th>
+                <th data-sk="point_cn">中文名<span class="ar"></span></th>
+                <th data-sk="data_type">数据类型<span class="ar"></span></th>
+                <th data-sk="uom">单位<span class="ar"></span></th>
+                <th data-sk="address">地址<span class="ar"></span></th>
+                <th data-sk="rw">读写<span class="ar"></span></th>
+              </tr></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="pts-pager" id="pt-pager"></div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- ==================== 底部 ==================== -->
+  <footer>
+    <div class="foot-line"></div>
+    <div class="foot-glow"></div>
+    <div class="nav-btn on" data-view="home">首 页</div>
+    <div class="nav-btn" data-view="io">出入库统计</div>
+    <div class="nav-btn" data-view="flow">流量分析</div>
+    <div class="nav-btn" data-view="dev">设备分析</div>
+    <div class="nav-btn" data-view="sys">业务系统</div>
+    <div class="nav-btn" data-view="pts">点位数据</div>
+  </footer>
+</div>
+
+<script>window.POINTS=[{"id":1,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"RFID","point_cn":"RFID信息","data_type":"String","uom":"","address":"DB15.0","rw":"read-only"},{"id":2,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Alarm_RFID","point_cn":"RFID故障","data_type":"Short","uom":"","address":"DB15.256","rw":"read-only"},{"id":3,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Alarm_GongWei","point_cn":"检测工位故障","data_type":"Short","uom":"","address":"DB15.258","rw":"read-only"},{"id":4,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Alarm_Pressure","point_cn":"气压故障","data_type":"Short","uom":"","address":"DB15.260","rw":"read-only"},{"id":5,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Alarm_AGV","point_cn":"AGV对接故障","data_type":"Short","uom":"","address":"DB15.262","rw":"read-only"},{"id":6,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Alarm_Robot","point_cn":"机器人故障","data_type":"Short","uom":"","address":"DB15.264","rw":"read-only"},{"id":7,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Alarm_EmergencyStop","point_cn":"急停","data_type":"Short","uom":"","address":"DB15.266","rw":"read-only"},{"id":8,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"JianCeShu","point_cn":"已检测数","data_type":"Short","uom":"","address":"DB15.268","rw":"read-only"},{"id":9,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"JianCeWanCheng","point_cn":"检测完成","data_type":"Boolean","uom":"","address":"DB15.270.0","rw":"read-only"},{"id":10,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"JianCeQiDong","point_cn":"检测启动","data_type":"Boolean","uom":"","address":"DB15.270.1","rw":"read-only"},{"id":11,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"OKShuLiang","point_cn":"合格数量","data_type":"Word","uom":"","address":"DB15.272","rw":"read-only"},{"id":12,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"NGShuLiang","point_cn":"不合格数量","data_type":"Word","uom":"","address":"DB15.274","rw":"read-only"},{"id":13,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Pass_rate","point_cn":"检测合格率","data_type":"Float","uom":"","address":"DB15.276","rw":"read-only"},{"id":14,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Green_Light","point_cn":"绿灯","data_type":"Boolean","uom":"","address":"DB15.280.0","rw":"read-only"},{"id":15,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Yellow_Light","point_cn":"黄灯","data_type":"Boolean","uom":"","address":"DB15.280.1","rw":"read-only"},{"id":16,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Red_Light","point_cn":"红灯","data_type":"Boolean","uom":"","address":"DB15.280.2","rw":"read-only"},{"id":17,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"U_conveyorlineRun","point_cn":"上输送线运行","data_type":"Boolean","uom":"","address":"Q0.7","rw":"read-only"},{"id":18,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"L_conveyorlineRun","point_cn":"下输送线运行","data_type":"Boolean","uom":"","address":"Q0.4","rw":"read-only"},{"id":19,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"SensorTest_Belt_Workpiece","point_cn":"输送线工件检测","data_type":"Boolean","uom":"","address":"I3.0","rw":"read-only"},{"id":20,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"SensorTest_Belt_Tray","point_cn":"输送线托盘检测","data_type":"Boolean","uom":"","address":"I3.2","rw":"read-only"},{"id":21,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"JianCe1_OK_NG","point_cn":"检测位置1结果","data_type":"Word","uom":"","address":"DB15.282","rw":"read-only"},{"id":22,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"JianCe2_OK_NG","point_cn":"检测位置2结果","data_type":"Word","uom":"","address":"DB15.284","rw":"read-only"},{"id":23,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"JianCe3_OK_NG","point_cn":"检测位置3结果","data_type":"Word","uom":"","address":"DB15.286","rw":"read-only"},{"id":24,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"JianCe4_OK_NG","point_cn":"检测位置4结果","data_type":"Word","uom":"","address":"DB15.288","rw":"read-only"},{"id":25,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"JianCe5_OK_NG","point_cn":"检测位置5结果","data_type":"Word","uom":"","address":"DB15.290","rw":"read-only"},{"id":26,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"JianCe_OK_NG","point_cn":"检测总结果","data_type":"Word","uom":"","address":"DB15.292","rw":"read-only"},{"id":27,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"IMS_RFID_WriteAddress","point_cn":"RFID写地址","data_type":"String","uom":"","address":"DB13.2","rw":"read-write"},{"id":28,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"IMS_RFID_ReadAddress","point_cn":"RFID读地址","data_type":"String","uom":"","address":"DB13.258","rw":"read-only"},{"id":29,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"IMS_Coad_Information","point_cn":"二维码信息","data_type":"String","uom":"","address":"DB13.514","rw":"read-only"},{"id":30,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"IMS_RFID_Infinished","point_cn":"RFID写入完成","data_type":"Boolean","uom":"","address":"DB26.770.0","rw":"read-only"},{"id":31,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"IMS_RFID_InPrepare","point_cn":"RFID写入准备","data_type":"Boolean","uom":"","address":"DB26.770.1","rw":"read-only"},{"id":32,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Alarm_Transport","point_cn":"传输故障","data_type":"Short","uom":"","address":"DB26.772","rw":"read-only"},{"id":33,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Alarm_Storage","point_cn":"仓库故障","data_type":"Short","uom":"","address":"DB26.774","rw":"read-only"},{"id":34,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Alarm_Servo","point_cn":"伺服故障","data_type":"Short","uom":"","address":"DB26.776","rw":"read-only"},{"id":35,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Alarm_Print","point_cn":"打印故障","data_type":"Short","uom":"","address":"DB26.780","rw":"read-only"},{"id":36,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Alarm_ItemsSensor","point_cn":"物料感应故障","data_type":"Short","uom":"","address":"DB26.784","rw":"read-only"},{"id":37,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Zaikushu","point_cn":"在库数量","data_type":"Word","uom":"","address":"DB8.24","rw":"read-only"},{"id":38,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Add_Zi_Cun","point_cn":"自动存料累计","data_type":"Short","uom":"","address":"DB26.1098","rw":"read-only"},{"id":39,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Add_Zi_Qu","point_cn":"自动取料累计","data_type":"Short","uom":"","address":"DB26.1100","rw":"read-only"},{"id":40,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Add_Hand_Cun","point_cn":"手动存料累计","data_type":"Short","uom":"","address":"DB26.1102","rw":"read-only"},{"id":41,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Storage_Status_9","point_cn":"9号工位物料类型","data_type":"Short","uom":"","address":"DB8.16","rw":"read-only"},{"id":42,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Storage_Status_8","point_cn":"8号工位物料类型","data_type":"Short","uom":"","address":"DB8.14","rw":"read-only"},{"id":43,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Storage_Status_7","point_cn":"7号工位物料类型","data_type":"Short","uom":"","address":"DB8.12","rw":"read-only"},{"id":44,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Storage_Status_6","point_cn":"6号工位物料类型","data_type":"Short","uom":"","address":"DB8.10","rw":"read-only"},{"id":45,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Storage_Status_5","point_cn":"5号工位物料类型","data_type":"Short","uom":"","address":"DB8.8","rw":"read-only"},{"id":46,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Storage_Status_4","point_cn":"4号工位物料类型","data_type":"Short","uom":"","address":"DB8.6","rw":"read-only"},{"id":47,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Storage_Status_3","point_cn":"3号工位物料类型","data_type":"Short","uom":"","address":"DB8.4","rw":"read-only"},{"id":48,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Storage_Status_2","point_cn":"2号工位物料类型","data_type":"Short","uom":"","address":"DB8.2","rw":"read-only"},{"id":49,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Storage_Status_12","point_cn":"12号工位物料类型","data_type":"Short","uom":"","address":"DB8.22","rw":"read-only"},{"id":50,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Storage_Status_11","point_cn":"11号工位物料类型","data_type":"Short","uom":"","address":"DB8.20","rw":"read-only"},{"id":51,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Storage_Status_10","point_cn":"10号工位物料类型","data_type":"Short","uom":"","address":"DB8.18","rw":"read-only"},{"id":52,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Storage_Status_1","point_cn":"1号工位物料类型","data_type":"Short","uom":"","address":"DB8.0","rw":"read-only"},{"id":53,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Sensor_Workpiece_9","point_cn":"9号工位工件检测","data_type":"Boolean","uom":"","address":"I1.5","rw":"read-only"},{"id":54,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Sensor_Workpiece_8","point_cn":"8号工位工件检测","data_type":"Boolean","uom":"","address":"I1.4","rw":"read-only"},{"id":55,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Sensor_Workpiece_7","point_cn":"7号工位工件检测","data_type":"Boolean","uom":"","address":"I1.3","rw":"read-only"},{"id":56,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Sensor_Workpiece_6","point_cn":"6号工位工件检测","data_type":"Boolean","uom":"","address":"I1.2","rw":"read-only"},{"id":57,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Sensor_Workpiece_5","point_cn":"5号工位工件检测","data_type":"Boolean","uom":"","address":"I1.1","rw":"read-only"},{"id":58,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Sensor_Workpiece_4","point_cn":"4号工位工件检测","data_type":"Boolean","uom":"","address":"I1.0","rw":"read-only"},{"id":59,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Sensor_Workpiece_3","point_cn":"3号工位工件检测","data_type":"Boolean","uom":"","address":"I0.7","rw":"read-only"},{"id":60,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Sensor_Workpiece_2","point_cn":"2号工位工件检测","data_type":"Boolean","uom":"","address":"I0.6","rw":"read-only"},{"id":61,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Sensor_Workpiece_10","point_cn":"10号工位工件检测","data_type":"Boolean","uom":"","address":"I8.0","rw":"read-only"},{"id":62,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Sensor_Workpiece_1","point_cn":"1号工位工件检测","data_type":"Boolean","uom":"","address":"I0.5","rw":"read-only"},{"id":63,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Robot_Z","point_cn":"Z轴位置数据","data_type":"Float","uom":"","address":"DB10.26","rw":"read-only"},{"id":64,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Robot_Y","point_cn":"Y轴位置数据","data_type":"Float","uom":"","address":"DB10.22","rw":"read-only"},{"id":65,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Robot_X","point_cn":"X轴位置数据","data_type":"Float","uom":"","address":"DB10.18","rw":"read-only"},{"id":66,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Quantity_Outbound","point_cn":"出库数","data_type":"Short","uom":"","address":"DB26.1104","rw":"read-only"},{"id":67,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Quantity_Inbound","point_cn":"入库数","data_type":"Short","uom":"","address":"DB26.1106","rw":"read-only"},{"id":68,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Outbound_Start","point_cn":"出库开始","data_type":"Short","uom":"","address":"DB26.48.5","rw":"read-write"},{"id":69,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Outbound_Finished","point_cn":"出库完成","data_type":"Short","uom":"","address":"DB26.48.7","rw":"read-only"},{"id":70,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Num_Total","point_cn":"总数","data_type":"Word","uom":"","address":"DB8.24","rw":"read-only"},{"id":71,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Num_Finished","point_cn":"完成数","data_type":"Word","uom":"","address":"DB26.60","rw":"read-only"},{"id":72,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Num_C","point_cn":"C数量","data_type":"Word","uom":"","address":"DB8.34","rw":"read-only"},{"id":73,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Num_B","point_cn":"B数量","data_type":"Word","uom":"","address":"DB8.32","rw":"read-only"},{"id":74,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Num_A","point_cn":"A数量","data_type":"Word","uom":"","address":"DB8.30","rw":"read-only"},{"id":75,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Inbound_Start","point_cn":"入库开始","data_type":"Boolean","uom":"","address":"DB26.58.0","rw":"read-write"},{"id":76,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Inbound_Finished","point_cn":"入库完成","data_type":"Boolean","uom":"","address":"DB26.58.2","rw":"read-only"},{"id":77,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Hand_Release","point_cn":"手抓松开","data_type":"Boolean","uom":"","address":"I8.4","rw":"read-only"},{"id":78,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"Hand_Grasp","point_cn":"手抓夹紧","data_type":"Boolean","uom":"","address":"I8.3","rw":"read-only"},{"id":79,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"ZhuangPeiShu","point_cn":"已生产数","data_type":"Short","uom":"","address":"DB13.270","rw":"read-only"},{"id":80,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"ZhuangPeiWanCheng","point_cn":"装配完成","data_type":"Boolean","uom":"","address":"DB13.272.0","rw":"read-only"},{"id":81,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"ZhuangPeiQiDong","point_cn":"装配启动","data_type":"Boolean","uom":"","address":"DB13.272.1","rw":"read-only"},{"id":82,"unit_code":"OTH","unit_name":"其他单元","station":"","plc_ip":"","point_name":"ZhuangPeiZongShu","point_cn":"装配总数","data_type":"Word","uom":"","address":"DB13.274.0","rw":"read-only"},{"id":83,"unit_code":"AGV","unit_name":"AGV移动物流","station":"MOMA-AGV","plc_ip":"","point_name":"RFID","point_cn":"RFID信息","data_type":"String","uom":"","address":"DB15.0","rw":"read-only"},{"id":84,"unit_code":"AGV","unit_name":"AGV移动物流","station":"MOMA-AGV","plc_ip":"","point_name":"Alarm_RFID","point_cn":"RFID故障","data_type":"Short","uom":"","address":"DB15.256","rw":"read-only"},{"id":85,"unit_code":"AGV","unit_name":"AGV移动物流","station":"MOMA-AGV","plc_ip":"","point_name":"Alarm_code","point_cn":"二维码故障","data_type":"Short","uom":"","address":"DB15.258","rw":"read-only"},{"id":86,"unit_code":"AGV","unit_name":"AGV移动物流","station":"MOMA-AGV","plc_ip":"","point_name":"Alarm_AGV","point_cn":"AGV故障","data_type":"Short","uom":"","address":"DB22.0","rw":"read-only"},{"id":87,"unit_code":"AGV","unit_name":"AGV移动物流","station":"MOMA-AGV","plc_ip":"","point_name":"Alarm_Yaxis","point_cn":"Y轴故障","data_type":"Short","uom":"","address":"DB22.2","rw":"read-only"},{"id":88,"unit_code":"AGV","unit_name":"AGV移动物流","station":"MOMA-AGV","plc_ip":"","point_name":"Alarm_Zaxis","point_cn":"Z轴故障","data_type":"Short","uom":"","address":"DB22.4","rw":"read-only"},{"id":89,"unit_code":"AGV","unit_name":"AGV移动物流","station":"MOMA-AGV","plc_ip":"","point_name":"Alarm_Lowbattery","point_cn":"电量低报警","data_type":"Short","uom":"","address":"DB22.6","rw":"read-only"},{"id":90,"unit_code":"AGV","unit_name":"AGV移动物流","station":"MOMA-AGV","plc_ip":"","point_name":"ZhuangPei_startsignal","point_cn":"装配工位启动运行信号","data_type":"Boolean","uom":"","address":"Q2.0","rw":"read-only"},{"id":91,"unit_code":"AGV","unit_name":"AGV移动物流","station":"MOMA-AGV","plc_ip":"","point_name":"JianCe_startsignal","point_cn":"检测工位启动运行信号","data_type":"Boolean","uom":"","address":"Q2.1","rw":"read-only"},{"id":92,"unit_code":"AGV","unit_name":"AGV移动物流","station":"MOMA-AGV","plc_ip":"","point_name":"ChongDian_startsignal","point_cn":"充电工位启动运行信号","data_type":"Boolean","uom":"","address":"Q2.3","rw":"read-only"},{"id":93,"unit_code":"AGV","unit_name":"AGV移动物流","station":"MOMA-AGV","plc_ip":"","point_name":"WuLiu_startsignal","point_cn":"物流工位启动运行信号","data_type":"Boolean","uom":"","address":"Q2.2","rw":"read-only"},{"id":94,"unit_code":"AGV","unit_name":"AGV移动物流","station":"MOMA-AGV","plc_ip":"","point_name":"ZhuangPei_Reachsignal","point_cn":"装配工位位置到达","data_type":"Boolean","uom":"","address":"I2.1","rw":"read-only"},{"id":95,"unit_code":"AGV","unit_name":"AGV移动物流","station":"MOMA-AGV","plc_ip":"","point_name":"JianCe_Reachsignal","point_cn":"检测工位位置到达","data_type":"Boolean","uom":"","address":"I2.0","rw":"read-only"},{"id":96,"unit_code":"AGV","unit_name":"AGV移动物流","station":"MOMA-AGV","plc_ip":"","point_name":"ChongDian_Reachsignal","point_cn":"充电工位位置到达","data_type":"Boolean","uom":"","address":"I2.3","rw":"read-only"},{"id":97,"unit_code":"AGV","unit_name":"AGV移动物流","station":"MOMA-AGV","plc_ip":"","point_name":"WuLiu_Reachsignal","point_cn":"物流工位位置到达","data_type":"Boolean","uom":"","address":"I2.2","rw":"read-only"},{"id":98,"unit_code":"AGV","unit_name":"AGV移动物流","station":"MOMA-AGV","plc_ip":"","point_name":"moma_Speed","point_cn":"MOMA运行速度","data_type":"Float","uom":"","address":"DB22.8","rw":"read-only"},{"id":99,"unit_code":"AGV","unit_name":"AGV移动物流","station":"MOMA-AGV","plc_ip":"","point_name":"Ydata_Position","point_cn":"Y轴位置数据","data_type":"Float","uom":"","address":"DB22.10","rw":"read-only"},{"id":100,"unit_code":"AGV","unit_name":"AGV移动物流","station":"MOMA-AGV","plc_ip":"","point_name":"ZhuangPei_Feedingsignal","point_cn":"装配工位送料启动信号","data_type":"Boolean","uom":"","address":"DB22.16.0","rw":"read-only"},{"id":101,"unit_code":"AGV","unit_name":"AGV移动物流","station":"MOMA-AGV","plc_ip":"","point_name":"ZhuangPei_Reclaimingsignal","point_cn":"装配工位取料启动信号","data_type":"Boolean","uom":"","address":"DB22.16.1","rw":"read-only"},{"id":102,"unit_code":"AGV","unit_name":"AGV移动物流","station":"MOMA-AGV","plc_ip":"","point_name":"JianCe_Feedingsignal","point_cn":"检测工位送料启动信号","data_type":"Boolean","uom":"","address":"DB22.16.2","rw":"read-only"},{"id":103,"unit_code":"AGV","unit_name":"AGV移动物流","station":"MOMA-AGV","plc_ip":"","point_name":"JianCe_Reclaimingsignal","point_cn":"检测工位取料启动信号","data_type":"Boolean","uom":"","address":"DB22.16.3","rw":"read-only"},{"id":104,"unit_code":"AGV","unit_name":"AGV移动物流","station":"MOMA-AGV","plc_ip":"","point_name":"ZhuangPei_Feedingcomplete","point_cn":"装配工位送料完成信号","data_type":"Boolean","uom":"","address":"DB22.16.4","rw":"read-only"},{"id":105,"unit_code":"AGV","unit_name":"AGV移动物流","station":"MOMA-AGV","plc_ip":"","point_name":"ZhuangPei_Reclaimingcomplete","point_cn":"装配工位取料完成信号","data_type":"Boolean","uom":"","address":"DB22.16.5","rw":"read-only"},{"id":106,"unit_code":"AGV","unit_name":"AGV移动物流","station":"MOMA-AGV","plc_ip":"","point_name":"JianCe_Feedingcomplete","point_cn":"检测工位送料完成信号","data_type":"Boolean","uom":"","address":"DB22.16.6","rw":"read-only"},{"id":107,"unit_code":"AGV","unit_name":"AGV移动物流","station":"MOMA-AGV","plc_ip":"","point_name":"JianCe_Reclaimingcomplete","point_cn":"检测工位取料完成信号","data_type":"Boolean","uom":"","address":"DB22.16.7","rw":"read-only"},{"id":108,"unit_code":"ENV","unit_name":"环境监测","station":"实训柜网关","plc_ip":"10.1.220.165","point_name":"station_1","point_cn":"仓位1","data_type":"Boolean","uom":"","address":"I0.4","rw":"read-only"},{"id":109,"unit_code":"ENV","unit_name":"环境监测","station":"实训柜网关","plc_ip":"10.1.220.165","point_name":"station_2","point_cn":"仓位2","data_type":"Boolean","uom":"","address":"I0.5","rw":"read-only"},{"id":110,"unit_code":"ENV","unit_name":"环境监测","station":"实训柜网关","plc_ip":"10.1.220.165","point_name":"stop_button","point_cn":"停止按钮","data_type":"Boolean","uom":"","address":"I0.3","rw":"read-only"},{"id":111,"unit_code":"ENV","unit_name":"环境监测","station":"实训柜网关","plc_ip":"10.1.220.165","point_name":"Wait_button","point_cn":"等待按钮","data_type":"Boolean","uom":"","address":"I0.2","rw":"read-only"},{"id":112,"unit_code":"ENV","unit_name":"环境监测","station":"实训柜网关","plc_ip":"10.1.220.165","point_name":"Start_button","point_cn":"启动按钮","data_type":"Boolean","uom":"","address":"I0.1","rw":"read-only"},{"id":113,"unit_code":"ENV","unit_name":"环境监测","station":"实训柜网关","plc_ip":"10.1.220.165","point_name":"green_lamp","point_cn":"绿灯","data_type":"Boolean","uom":"","address":"Q0.2","rw":"read-only"},{"id":114,"unit_code":"ENV","unit_name":"环境监测","station":"实训柜网关","plc_ip":"10.1.220.165","point_name":"fan","point_cn":"风扇装置","data_type":"Boolean","uom":"","address":"Q0.3","rw":"read-only"},{"id":115,"unit_code":"ENV","unit_name":"环境监测","station":"实训柜网关","plc_ip":"10.1.220.165","point_name":"yellow_lamp","point_cn":"黄灯","data_type":"Boolean","uom":"","address":"Q0.1","rw":"read-only"},{"id":116,"unit_code":"ENV","unit_name":"环境监测","station":"实训柜网关","plc_ip":"10.1.220.165","point_name":"red_lamp","point_cn":"红灯","data_type":"Boolean","uom":"","address":"Q0.0","rw":"read-only"},{"id":117,"unit_code":"ENV","unit_name":"环境监测","station":"实训柜网关","plc_ip":"10.1.220.165","point_name":"humidity","point_cn":"百分比","data_type":"Float","uom":"%","address":"DB1.16","rw":"read-only"},{"id":118,"unit_code":"ENV","unit_name":"环境监测","station":"实训柜网关","plc_ip":"10.1.220.165","point_name":"xvibrate","point_cn":"振动","data_type":"Float","uom":"","address":"DB1.20","rw":"read-only"},{"id":119,"unit_code":"ENV","unit_name":"环境监测","station":"实训柜网关","plc_ip":"10.1.220.165","point_name":"temperature","point_cn":"摄氏度","data_type":"Float","uom":"摄氏度","address":"DB1.12","rw":"read-only"},{"id":120,"unit_code":"ENV","unit_name":"环境监测","station":"实训柜网关","plc_ip":"10.1.220.165","point_name":"power","point_cn":"功率（W）","data_type":"Float","uom":"W","address":"DB1.8","rw":"read-only"},{"id":121,"unit_code":"ENV","unit_name":"环境监测","station":"实训柜网关","plc_ip":"10.1.220.165","point_name":"electric","point_cn":"电流（A）","data_type":"Float","uom":"A","address":"DB1.4","rw":"read-only"},{"id":122,"unit_code":"ENV","unit_name":"环境监测","station":"实训柜网关","plc_ip":"10.1.220.165","point_name":"AlarmJiTing","point_cn":"急停","data_type":"Boolean","uom":"","address":"I0.0","rw":"read-only"},{"id":123,"unit_code":"ENV","unit_name":"环境监测","station":"实训柜网关","plc_ip":"10.1.220.165","point_name":"voltage","point_cn":"电压（V）","data_type":"Float","uom":"V","address":"DB1.0","rw":"read-only"},{"id":124,"unit_code":"WMS","unit_name":"线上仓库","station":"仓库PLC(CangKu)","plc_ip":"10.1.220.126","point_name":"PartCount","point_cn":"零件库出库数量","data_type":"Word","uom":"","address":"DB33.8","rw":"read-only"},{"id":125,"unit_code":"WMS","unit_name":"线上仓库","station":"仓库PLC(CangKu)","plc_ip":"10.1.220.126","point_name":"PartType","point_cn":"零件库取料类型","data_type":"Word","uom":"","address":"DB33.4","rw":"read-only"},{"id":126,"unit_code":"WMS","unit_name":"线上仓库","station":"仓库PLC(CangKu)","plc_ip":"10.1.220.126","point_name":"ProductCount","point_cn":"成品库入库数量","data_type":"Word","uom":"","address":"DB33.6","rw":"read-only"},{"id":127,"unit_code":"WMS","unit_name":"线上仓库","station":"仓库PLC(CangKu)","plc_ip":"10.1.220.126","point_name":"ProductType","point_cn":"成品库取料类型","data_type":"Word","uom":"","address":"DB33.2","rw":"read-only"},{"id":128,"unit_code":"WMS","unit_name":"线上仓库","station":"仓库PLC(CangKu)","plc_ip":"10.1.220.126","point_name":"RFID","point_cn":"RFID","data_type":"String","uom":"","address":"DB33.32","rw":"read-write"},{"id":129,"unit_code":"WMS","unit_name":"线上仓库","station":"仓库PLC(CangKu)","plc_ip":"10.1.220.126","point_name":"RuKuRunning","point_cn":"仓库放料工作信号","data_type":"Boolean","uom":"","address":"DB33.30.3","rw":"read-only"},{"id":130,"unit_code":"WMS","unit_name":"线上仓库","station":"仓库PLC(CangKu)","plc_ip":"10.1.220.126","point_name":"ProductBase3","point_cn":"成品库3号位置状态","data_type":"Boolean","uom":"","address":"DB33.31.1","rw":"read-only"},{"id":131,"unit_code":"WMS","unit_name":"线上仓库","station":"仓库PLC(CangKu)","plc_ip":"10.1.220.126","point_name":"ProductBase1","point_cn":"成品库1号位置状态","data_type":"Boolean","uom":"","address":"DB33.30.7","rw":"read-only"},{"id":132,"unit_code":"WMS","unit_name":"线上仓库","station":"仓库PLC(CangKu)","plc_ip":"10.1.220.126","point_name":"PartBase3","point_cn":"零件库3号位置工件检测","data_type":"Boolean","uom":"","address":"DB33.30.6","rw":"read-only"},{"id":133,"unit_code":"WMS","unit_name":"线上仓库","station":"仓库PLC(CangKu)","plc_ip":"10.1.220.126","point_name":"ChuKuRunning","point_cn":"仓库取料工作信号","data_type":"Boolean","uom":"","address":"DB33.30.0","rw":"read-only"},{"id":134,"unit_code":"WMS","unit_name":"线上仓库","station":"仓库PLC(CangKu)","plc_ip":"10.1.220.126","point_name":"ProductBase2","point_cn":"成品库2号位置状态","data_type":"Boolean","uom":"","address":"DB33.31.0","rw":"read-only"},{"id":135,"unit_code":"WMS","unit_name":"线上仓库","station":"仓库PLC(CangKu)","plc_ip":"10.1.220.126","point_name":"PartBase1","point_cn":"零件库1号位置工件检测","data_type":"Boolean","uom":"","address":"DB33.30.4","rw":"read-only"},{"id":136,"unit_code":"WMS","unit_name":"线上仓库","station":"仓库PLC(CangKu)","plc_ip":"10.1.220.126","point_name":"PartBase2","point_cn":"零件库2号位置工件检测","data_type":"Boolean","uom":"","address":"DB33.30.5","rw":"read-only"},{"id":137,"unit_code":"LOG","unit_name":"物流单元","station":"输送控制PLC(Controler)","plc_ip":"10.1.220.121","point_name":"IOTReady","point_cn":"IOT下发启动命令","data_type":"Boolean","uom":"","address":"DB33.0.1","rw":"read-write"},{"id":138,"unit_code":"LOG","unit_name":"物流单元","station":"输送控制PLC(Controler)","plc_ip":"10.1.220.121","point_name":"SensorAlarm","point_cn":"传感器故障","data_type":"Word","uom":"","address":"DB33.814","rw":"read-only"},{"id":139,"unit_code":"LOG","unit_name":"物流单元","station":"输送控制PLC(Controler)","plc_ip":"10.1.220.121","point_name":"BaseAlarm","point_cn":"仓库故障","data_type":"Word","uom":"","address":"DB33.810","rw":"read-only"},{"id":140,"unit_code":"LOG","unit_name":"物流单元","station":"输送控制PLC(Controler)","plc_ip":"10.1.220.121","point_name":"LowConveyerRunning","point_cn":"下输送线运行","data_type":"Boolean","uom":"","address":"DB33.10.2","rw":"read-only"},{"id":141,"unit_code":"LOG","unit_name":"物流单元","station":"输送控制PLC(Controler)","plc_ip":"10.1.220.121","point_name":"MidConveyerRunning","point_cn":"中输送线运行","data_type":"Boolean","uom":"","address":"DB33.10.1","rw":"read-only"},{"id":142,"unit_code":"LOG","unit_name":"物流单元","station":"输送控制PLC(Controler)","plc_ip":"10.1.220.121","point_name":"DeviceReady","point_cn":"设备就绪","data_type":"Boolean","uom":"","address":"DB33.0.0","rw":"read-only"},{"id":143,"unit_code":"LOG","unit_name":"物流单元","station":"输送控制PLC(Controler)","plc_ip":"10.1.220.121","point_name":"UpConveyerRunning","point_cn":"上输送线运行","data_type":"Boolean","uom":"","address":"DB33.10.0","rw":"read-only"},{"id":144,"unit_code":"LOG","unit_name":"物流单元","station":"输送控制PLC(Controler)","plc_ip":"10.1.220.121","point_name":"Start","point_cn":"启动","data_type":"Boolean","uom":"","address":"DB33.814.0","rw":"read-write"},{"id":145,"unit_code":"LOG","unit_name":"物流单元","station":"输送控制PLC(Controler)","plc_ip":"10.1.220.121","point_name":"RFIDAlarm","point_cn":"RFID故障","data_type":"Word","uom":"","address":"DB33.812","rw":"read-only"},{"id":146,"unit_code":"LOG","unit_name":"物流单元","station":"输送控制PLC(Controler)","plc_ip":"10.1.220.121","point_name":"ConveyerAlarm","point_cn":"输送机故障","data_type":"Word","uom":"","address":"DB33.806","rw":"read-only"},{"id":147,"unit_code":"LOG","unit_name":"物流单元","station":"输送控制PLC(Controler)","plc_ip":"10.1.220.121","point_name":"ServoAlarm","point_cn":"伺服报警","data_type":"Word","uom":"","address":"DB33.804","rw":"read-only"},{"id":148,"unit_code":"LOG","unit_name":"物流单元","station":"输送控制PLC(Controler)","plc_ip":"10.1.220.121","point_name":"PressureAlarm","point_cn":"气压报警","data_type":"Word","uom":"","address":"DB33.808","rw":"read-only"},{"id":149,"unit_code":"LOG","unit_name":"物流单元","station":"输送控制PLC(Controler)","plc_ip":"10.1.220.121","point_name":"StopAlarm","point_cn":"急停报警","data_type":"Word","uom":"","address":"DB33.802","rw":"read-only"},{"id":150,"unit_code":"LOG","unit_name":"物流单元","station":"输送控制PLC(Controler)","plc_ip":"10.1.220.121","point_name":"AlarmCount","point_cn":"报警数量","data_type":"Word","uom":"","address":"DB33.800","rw":"read-only"},{"id":151,"unit_code":"LOG","unit_name":"物流单元","station":"输送控制PLC(Controler)","plc_ip":"10.1.220.121","point_name":"Green","point_cn":"绿灯","data_type":"Boolean","uom":"","address":"DB33.0.4","rw":"read-only"},{"id":152,"unit_code":"LOG","unit_name":"物流单元","station":"输送控制PLC(Controler)","plc_ip":"10.1.220.121","point_name":"Yellow","point_cn":"黄灯","data_type":"Boolean","uom":"","address":"DB33.0.3","rw":"read-only"},{"id":153,"unit_code":"LOG","unit_name":"物流单元","station":"输送控制PLC(Controler)","plc_ip":"10.1.220.121","point_name":"Red","point_cn":"红灯","data_type":"Boolean","uom":"","address":"DB33.0.2","rw":"read-only"},{"id":154,"unit_code":"QC","unit_name":"检测单元","station":"检测PLC(工作站)","plc_ip":"10.1.220.139","point_name":"JianCeRunning","point_cn":"检测单元运行信号","data_type":"Boolean","uom":"","address":"DB33.30.2","rw":"read-only"},{"id":155,"unit_code":"QC","unit_name":"检测单元","station":"检测PLC(工作站)","plc_ip":"10.1.220.139","point_name":"RFID","point_cn":"RFID","data_type":"String","uom":"","address":"DB33.544","rw":"read-write"},{"id":156,"unit_code":"QC","unit_name":"检测单元","station":"检测PLC(工作站)","plc_ip":"10.1.220.139","point_name":"JianCeBallCount","point_cn":"检测总数量","data_type":"Word","uom":"","address":"DB33.28","rw":"read-only"},{"id":157,"unit_code":"QC","unit_name":"检测单元","station":"检测PLC(工作站)","plc_ip":"10.1.220.139","point_name":"JianCeSmallBall","point_cn":"检测小弹珠数量","data_type":"Word","uom":"","address":"DB33.26","rw":"read-only"},{"id":158,"unit_code":"QC","unit_name":"检测单元","station":"检测PLC(工作站)","plc_ip":"10.1.220.139","point_name":"JianCeBigBall","point_cn":"检测大弹珠数量","data_type":"Word","uom":"","address":"DB33.24","rw":"read-only"},{"id":159,"unit_code":"ASM","unit_name":"装配单元","station":"装配PLC(工作站)","plc_ip":"10.1.220.133","point_name":"SmallBallInContainer","point_cn":"小钢珠剩余数量","data_type":"Word","uom":"","address":"DB33.22","rw":"read-only"},{"id":160,"unit_code":"ASM","unit_name":"装配单元","station":"装配PLC(工作站)","plc_ip":"10.1.220.133","point_name":"RFID","point_cn":"RFID","data_type":"String","uom":"","address":"DB33.288","rw":"read-write"},{"id":161,"unit_code":"ASM","unit_name":"装配单元","station":"装配PLC(工作站)","plc_ip":"10.1.220.133","point_name":"BigBallInContainer","point_cn":"大钢珠剩余数量","data_type":"Word","uom":"","address":"DB33.20","rw":"read-only"},{"id":162,"unit_code":"ASM","unit_name":"装配单元","station":"装配PLC(工作站)","plc_ip":"10.1.220.133","point_name":"SmallBallCount","point_cn":"小钢珠已出库数量","data_type":"Word","uom":"","address":"DB33.14","rw":"read-only"},{"id":163,"unit_code":"ASM","unit_name":"装配单元","station":"装配PLC(工作站)","plc_ip":"10.1.220.133","point_name":"BigBallCount","point_cn":"大钢珠已出库数量","data_type":"Word","uom":"","address":"DB33.12","rw":"read-only"},{"id":164,"unit_code":"ASM","unit_name":"装配单元","station":"装配PLC(工作站)","plc_ip":"10.1.220.133","point_name":"BigBall","point_cn":"大钢珠需出库数量","data_type":"Word","uom":"","address":"DB33.16","rw":"read-write"},{"id":165,"unit_code":"ASM","unit_name":"装配单元","station":"装配PLC(工作站)","plc_ip":"10.1.220.133","point_name":"SmallBall","point_cn":"小钢珠需出库数量","data_type":"Word","uom":"","address":"DB33.18","rw":"read-write"},{"id":166,"unit_code":"ASM","unit_name":"装配单元","station":"装配PLC(工作站)","plc_ip":"10.1.220.133","point_name":"ZhuangPeiRunning","point_cn":"装配单元运行信号","data_type":"Boolean","uom":"","address":"DB33.30.1","rw":"read-only"}];</script>
+<script>
+/* ===== 离线数据兜底：无后端时自动用内联快照，file:// 直接打开也能出数 ===== */
+window.__API_DATA__ = {"/api/overview":{"code":0,"data":{"stat_date":"2026-10-21","capacity":12000,"stock":10882,"use_rate":90.7,"turnover":33.4,"inbound":4104,"outbound":3168,"on_duty":560,"pick_times":525,"vehicle":35,"device_total":166,"alarm_unhandled":6,"temperature":17.5,"humidity":70.5}},"/api/inventory":{"code":0,"data":{"latest":{"id":30,"stat_date":"2026-10-21","capacity":12000,"inbound_qty":4104,"outbound_qty":3168,"stock_qty":10882,"turnover_rate":33.4,"use_rate":90.7,"create_time":"2026-10-21 00:00:00"},"trend":[{"d":"2026-09-22","inb":3086,"outb":3727,"stock":8759,"rate":73.0},{"d":"2026-09-23","inb":3635,"outb":3751,"stock":8643,"rate":72.0},{"d":"2026-09-24","inb":2882,"outb":2988,"stock":8537,"rate":71.1},{"d":"2026-09-25","inb":4256,"outb":4566,"stock":8227,"rate":68.6},{"d":"2026-09-26","inb":3594,"outb":3455,"stock":8366,"rate":69.7},{"d":"2026-09-27","inb":4424,"outb":4201,"stock":8589,"rate":71.6},{"d":"2026-09-28","inb":3383,"outb":3588,"stock":8384,"rate":69.9},{"d":"2026-09-29","inb":3750,"outb":3659,"stock":8475,"rate":70.6},{"d":"2026-09-30","inb":3852,"outb":3642,"stock":8685,"rate":72.4},{"d":"2026-10-01","inb":2833,"outb":2981,"stock":8537,"rate":71.1},{"d":"2026-10-02","inb":3000,"outb":2831,"stock":8706,"rate":72.5},{"d":"2026-10-03","inb":2826,"outb":2564,"stock":8968,"rate":74.7},{"d":"2026-10-04","inb":3672,"outb":3708,"stock":8932,"rate":74.4},{"d":"2026-10-05","inb":3897,"outb":3721,"stock":9108,"rate":75.9},{"d":"2026-10-06","inb":3452,"outb":3249,"stock":9311,"rate":77.6},{"d":"2026-10-07","inb":3906,"outb":3591,"stock":9626,"rate":80.2},{"d":"2026-10-08","inb":3623,"outb":3907,"stock":9342,"rate":77.8},{"d":"2026-10-09","inb":3143,"outb":2941,"stock":9544,"rate":79.5},{"d":"2026-10-10","inb":3740,"outb":3573,"stock":9711,"rate":80.9},{"d":"2026-10-11","inb":4249,"outb":4127,"stock":9833,"rate":81.9},{"d":"2026-10-12","inb":2918,"outb":3235,"stock":9516,"rate":79.3},{"d":"2026-10-13","inb":3331,"outb":3209,"stock":9638,"rate":80.3},{"d":"2026-10-14","inb":3107,"outb":2847,"stock":9898,"rate":82.5},{"d":"2026-10-15","inb":2969,"outb":3208,"stock":9659,"rate":80.5},{"d":"2026-10-16","inb":2705,"outb":2625,"stock":9739,"rate":81.2},{"d":"2026-10-17","inb":3171,"outb":3098,"stock":9812,"rate":81.8},{"d":"2026-10-18","inb":2799,"outb":2655,"stock":9956,"rate":83.0},{"d":"2026-10-19","inb":4448,"outb":4417,"stock":9987,"rate":83.2},{"d":"2026-10-20","inb":3886,"outb":3927,"stock":9946,"rate":82.9},{"d":"2026-10-21","inb":4104,"outb":3168,"stock":10882,"rate":90.7}]}},"/api/staff":{"code":0,"data":{"latest":{"id":7,"stat_date":"2026-10-21","on_duty":560,"pick_times":525,"vehicle_cnt":35},"trend":[{"d":"2026-10-15","on_duty":529,"pick_times":471,"vehicle_cnt":39},{"d":"2026-10-16","on_duty":555,"pick_times":507,"vehicle_cnt":36},{"d":"2026-10-17","on_duty":548,"pick_times":510,"vehicle_cnt":41},{"d":"2026-10-18","on_duty":599,"pick_times":532,"vehicle_cnt":29},{"d":"2026-10-19","on_duty":539,"pick_times":503,"vehicle_cnt":34},{"d":"2026-10-20","on_duty":591,"pick_times":532,"vehicle_cnt":36},{"d":"2026-10-21","on_duty":560,"pick_times":525,"vehicle_cnt":35}]}},"/api/orders":{"code":0,"data":{"rows":[{"order_no":"10310","sku_code":"WL-1001","product":"电机定子总成","batch_no":"PL-2408A","qty":400,"status":"待拣货","station":"成品发运区","create_time":"2026-10-21 13:36:00"},{"order_no":"10311","sku_code":"WL-1002","product":"减速机壳体","batch_no":"PL-2408B","qty":210,"status":"已出库","station":"货物流转区","create_time":"2026-10-21 12:20:00"},{"order_no":"10312","sku_code":"WL-1003","product":"行星齿轮组","batch_no":"PL-2409A","qty":48,"status":"待拣货","station":"装配作业区","create_time":"2026-10-21 08:16:00"},{"order_no":"10313","sku_code":"WL-1004","product":"伺服驱动器","batch_no":"PL-2409C","qty":348,"status":"已出库","station":"成品发运区","create_time":"2026-10-21 14:12:00"},{"order_no":"10314","sku_code":"WL-1005","product":"精密导轨组件","batch_no":"PL-2410A","qty":186,"status":"拣货中","station":"货物流转区","create_time":"2026-10-21 11:00:00"},{"order_no":"10315","sku_code":"WL-1006","product":"轴承座总成","batch_no":"PL-2410B","qty":400,"status":"已出库","station":"装配作业区","create_time":"2026-10-21 09:04:00"},{"order_no":"10316","sku_code":"WL-1007","product":"编码器模块","batch_no":"PL-2411A","qty":120,"status":"待拣货","station":"质量复检区","create_time":"2026-10-21 10:34:00"},{"order_no":"10317","sku_code":"WL-1008","product":"联轴器组件","batch_no":"PL-2411C","qty":48,"status":"已出库","station":"成品发运区","create_time":"2026-10-21 12:26:00"},{"order_no":"10318","sku_code":"WL-1009","product":"气动夹爪","batch_no":"PL-2412A","qty":120,"status":"已出库","station":"货物流转区","create_time":"2026-10-21 08:47:00"},{"order_no":"10319","sku_code":"WL-1010","product":"视觉标定板","batch_no":"PL-2412B","qty":264,"status":"待拣货","station":"成品发运区","create_time":"2026-10-21 10:40:00"}],"stat":[{"status":"已出库","c":7},{"status":"待拣货","c":6},{"status":"拣货中","c":1}]}},"/api/io":{"code":0,"data":{"date":"2026-10-21","slots":[{"slot_name":"00-05","inbound":451,"outbound":333},{"slot_name":"06-10","inbound":1149,"outbound":871},{"slot_name":"11-15","inbound":1067,"outbound":840},{"slot_name":"16-20","inbound":964,"outbound":729},{"slot_name":"21-24","inbound":473,"outbound":395}],"inbound":4104,"outbound":3168,"stock":10882,"trend":[{"d":"2026-10-15","inb":2969,"outb":3208},{"d":"2026-10-16","inb":2705,"outb":2625},{"d":"2026-10-17","inb":3171,"outb":3098},{"d":"2026-10-18","inb":2799,"outb":2655},{"d":"2026-10-19","inb":4448,"outb":4417},{"d":"2026-10-20","inb":3886,"outb":3927},{"d":"2026-10-21","inb":4104,"outb":3168}]}},"/api/devices":{"code":0,"data":{"total":166,"normal":134,"standby":18,"offline":8,"fault":6,"online_rate":95.2,"units":[{"unit_code":"AGV","device":"MOMA-AGV","normal":21,"standby":3,"offline":0,"fault":1},{"unit_code":"ASM","device":"装配PLC(工作站)","normal":6,"standby":1,"offline":0,"fault":1},{"unit_code":"ENV","device":"实训柜网关","normal":13,"standby":1,"offline":1,"fault":1},{"unit_code":"LOG","device":"输送控制PLC(Controler)","normal":12,"standby":3,"offline":1,"fault":1},{"unit_code":"OTH","device":"其他单元","normal":69,"standby":8,"offline":4,"fault":1},{"unit_code":"QC","device":"检测PLC(工作站)","normal":4,"standby":0,"offline":0,"fault":1},{"unit_code":"WMS","device":"物流PLC(Logistics)","normal":9,"standby":2,"offline":2,"fault":0}]}},"/api/env":{"code":0,"data":[{"ts":"2026-10-21 00:00:00","t":17.0,"h":74.5},{"ts":"2026-10-21 01:00:00","t":17.7,"h":70.5},{"ts":"2026-10-21 02:00:00","t":17.0,"h":73.9},{"ts":"2026-10-21 03:00:00","t":17.5,"h":70.5},{"ts":"2026-10-21 04:00:00","t":18.3,"h":68.1},{"ts":"2026-10-21 05:00:00","t":19.0,"h":65.7},{"ts":"2026-10-21 06:00:00","t":20.4,"h":60.7},{"ts":"2026-10-21 07:00:00","t":21.9,"h":56.5},{"ts":"2026-10-21 08:00:00","t":22.5,"h":55.3},{"ts":"2026-10-21 09:00:00","t":23.7,"h":51.7},{"ts":"2026-10-21 10:00:00","t":24.4,"h":47.4},{"ts":"2026-10-21 11:00:00","t":25.1,"h":46.7},{"ts":"2026-10-21 12:00:00","t":25.2,"h":46.2},{"ts":"2026-10-21 13:00:00","t":25.4,"h":45.8},{"ts":"2026-10-21 14:00:00","t":25.2,"h":45.5},{"ts":"2026-10-21 15:00:00","t":25.3,"h":45.2},{"ts":"2026-10-21 16:00:00","t":24.8,"h":45.3},{"ts":"2026-10-21 17:00:00","t":23.7,"h":49.4},{"ts":"2026-10-21 18:00:00","t":22.2,"h":55.9},{"ts":"2026-10-21 19:00:00","t":21.1,"h":60.8},{"ts":"2026-10-21 20:00:00","t":20.9,"h":60.5},{"ts":"2026-10-21 21:00:00","t":19.3,"h":64.7},{"ts":"2026-10-21 22:00:00","t":18.5,"h":67.5},{"ts":"2026-10-21 23:00:00","t":17.5,"h":70.5}]},"/api/alarms":{"code":0,"data":[{"alarm_time":"2026-10-21 16:30:00","source":"货架巷道","content":"搬运AGV取货超时，请检查装载状态","level":"重要","is_handled":1},{"alarm_time":"2026-10-21 16:22:00","source":"输送线分拣","content":"扫码识别失败，包裹已转入异常通道","level":"一般","is_handled":0},{"alarm_time":"2026-10-21 16:22:00","source":"AGV-03","content":"电量低于 20%，已自动前往充电桩","level":"一般","is_handled":0},{"alarm_time":"2026-10-21 16:18:00","source":"叉车作业区","content":"通道限速告警，车速 6.2 km/h","level":"一般","is_handled":1},{"alarm_time":"2026-10-21 16:12:00","source":"货架 B-12","content":"装载重量超限，请核查","level":"重要","is_handled":1},{"alarm_time":"2026-10-21 16:06:00","source":"成品暂存区","content":"温湿度超出设定范围（26.8℃ / 68%）","level":"重要","is_handled":0},{"alarm_time":"2026-10-21 16:02:00","source":"AGV-07","content":"路径阻塞，任务重新规划","level":"一般","is_handled":0},{"alarm_time":"2026-10-21 16:00:00","source":"入库口","content":"装卸门未关闭，存在货物受潮风险","level":"紧急","is_handled":0},{"alarm_time":"2026-10-21 15:50:00","source":"出库复核","content":"批次数量差异：应出 320 实出 318","level":"重要","is_handled":0}]},"/api/points/units":{"code":0,"data":[{"unit_code":"AGV","unit_name":"AGV移动物流","cnt":25},{"unit_code":"ASM","unit_name":"装配单元","cnt":8},{"unit_code":"ENV","unit_name":"环境监测","cnt":16},{"unit_code":"LOG","unit_name":"物流单元","cnt":17},{"unit_code":"OTH","unit_name":"其他单元","cnt":82},{"unit_code":"QC","unit_name":"检测单元","cnt":5},{"unit_code":"WMS","unit_name":"线上物流中心","cnt":13}]},"/api/health":{"code":0,"data":{"status":"ok","total":8,"ok":8,"uptime_s":3,"version":"2.0","checks":[{"name":"点位表","table":"dim_point","rows":166,"ok":true},{"name":"货量统计","table":"fact_inventory","rows":30,"ok":true},{"name":"出入库","table":"fact_io_slot","rows":35,"ok":true},{"name":"订单","table":"fact_order","rows":14,"ok":true},{"name":"人货场","table":"fact_staff","rows":7,"ok":true},{"name":"设备状态","table":"fact_device_status","rows":166,"ok":true},{"name":"温湿度","table":"fact_env","rows":24,"ok":true},{"name":"告警","table":"fact_alarm","rows":9,"ok":true}]}}};
+(function () {
+  var orig = window.fetch ? window.fetch.bind(window) : null;
+  window.fetch = function (u, o) {
+    var url = typeof u === 'string' ? u : (u && u.url) || '';
+    var m = /\/api\/[A-Za-z0-9_\/]+/.exec(url);
+    if (m) {
+      var k = m[0].replace(/\/+$/, '');
+      var hit = window.__API_DATA__[k];
+      if (hit) {
+        return Promise.resolve({
+          ok: true, status: 200,
+          json: function () { return Promise.resolve(hit); },
+          text: function () { return Promise.resolve(JSON.stringify(hit)); }
+        });
+      }
+    }
+    if (!orig) return Promise.reject(new Error('offline: ' + url));
+    return orig(u, o).catch(function (e) {
+      var mm = /\/api\/[A-Za-z0-9_\/]+/.exec(url);
+      if (mm) {
+        var k2 = mm[0].replace(/\/+$/, '');
+        var h2 = window.__API_DATA__[k2];
+        if (h2) {
+          return {
+            ok: true, status: 200,
+            json: function () { return Promise.resolve(h2); },
+            text: function () { return Promise.resolve(JSON.stringify(h2)); }
+          };
+        }
+      }
+      throw e;
+    });
+  };
+})();
+</script>
+<script>
+/* ================= 自适应 ================= */
+function fit(){
+  const s = Math.min(innerWidth/1920, innerHeight/1080);
+  const st = document.getElementById('stage');
+  st.style.transform = `scale(${s})`;
+  st.style.left = (innerWidth - 1920*s)/2 + 'px';
+  st.style.top  = (innerHeight - 1080*s)/2 + 'px';
+}
+fit(); addEventListener('resize', fit);
+
+/* ================= 时钟 ================= */
+function clock(){
+  const d = new Date(), p = n => String(n).padStart(2,'0');
+  document.getElementById('clock').textContent =
+    `${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+clock(); setInterval(clock, 1000);
+
+/* ================= 通用 ================= */
+const AX='#5f92b8', SPLIT='rgba(70,140,205,.15)';
+const grad=(a,b)=> new echarts.graphic.LinearGradient(0,0,0,1,[{offset:0,color:a},{offset:1,color:b}]);
+const TT={
+  trigger:'axis',
+  backgroundColor:'rgba(5,18,36,.95)',
+  borderColor:'rgba(70,170,240,.55)', borderWidth:1,
+  textStyle:{color:'#cfe6ff',fontSize:12},
+  axisPointer:{type:'line',lineStyle:{color:'rgba(90,190,255,.45)'}}
+};
+const C={};
+function chart(id){ if(!C[id]) C[id]=echarts.init(document.getElementById(id)); return C[id]; }
+async function api(u){ const r=await fetch(u); const j=await r.json(); return j.data; }
+
+/* ================= 1. 货量统计（仪表盘） ================= */
+async function loadInv(){
+  const d = await api('/api/inventory');
+  const L = d.latest;
+  document.getElementById('inv-date').textContent = L.stat_date;
+  document.getElementById('inv-cap').textContent = Number(L.capacity).toLocaleString();
+  document.getElementById('inv-stock').textContent = Number(L.stock_qty).toLocaleString();
+  document.getElementById('inv-use').textContent = L.use_rate + '%';
+
+  chart('c-inv').setOption({
+    series:[{
+      type:'gauge', startAngle:210, endAngle:-30, radius:'108%', center:['50%','66%'],
+      min:0, max:100, splitNumber:5, pointer:{show:false},
+      progress:{show:true, width:16, itemStyle:{
+        color:new echarts.graphic.LinearGradient(0,1,1,0,[
+          {offset:0,color:'#13b8e8'},{offset:.5,color:'#43e6c8'},{offset:1,color:'#ffd15c'}])}},
+      axisLine:{lineStyle:{width:16, color:[[1,'rgba(28,84,142,.45)']]}},
+      axisTick:{distance:-20,length:4,lineStyle:{color:'rgba(90,170,230,.55)',width:1}},
+      splitLine:{distance:-24,length:9,lineStyle:{color:'rgba(110,200,255,.7)',width:1.6}},
+      axisLabel:{distance:-42,color:'#6f9fc4',fontSize:9.5},
+      anchor:{show:false},
+      detail:{offsetCenter:[0,'10%'],fontSize:34,fontWeight:'bold',color:'#4fd8ff',
+        fontFamily:'Consolas,monospace',
+        formatter:v=>v.toFixed(1)+'%',
+        textShadow:{color:'rgba(70,200,255,.6)',blur:14}},
+      title:{offsetCenter:[0,'34%'],color:'#7fa6c8',fontSize:12},
+      data:[{value:L.use_rate, name:'容量利用率'}]
+    }]
+  });
+}
+
+/* ================= 2. 人货场 ================= */
+async function loadStaff(){
+  const d = await api('/api/staff');
+  const L = d.latest;
+  document.getElementById('hg-on').textContent = L.on_duty;
+  document.getElementById('hg-pick').textContent = L.pick_times;
+  document.getElementById('hg-veh').textContent = L.vehicle_cnt;
+  const dv = await api('/api/devices');
+  document.getElementById('hg-dev').textContent = dv.total - dv.offline;
+}
+
+/* ================= 3. 订单详情 ================= */
+async function loadOrders(){
+  const d = await api('/api/orders');
+  document.getElementById('order-chip').textContent = '共 ' + d.rows.length + ' 单';
+  const cls = {'待拣货':'t-wait','已出库':'t-out','拣货中':'t-ing'};
+  document.querySelector('#order-tbl tbody').innerHTML = d.rows.map((r,i)=>`
+    <tr>
+      <td class="mono">${String(i+1).padStart(2,'0')}</td>
+      <td class="mono">${r.order_no}</td>
+      <td class="mono" style="color:#9fd8ff">${r.sku_code}</td>
+      <td style="color:#c2dcf2">${r.product}</td>
+      <td class="mono" style="font-size:10.5px">${r.batch_no||''}</td>
+      <td class="num">${r.qty}</td>
+      <td><span class="tag ${cls[r.status]||'t-ing'}">${r.status}</span></td>
+    </tr>`).join('');
+}
+
+/* ================= 4. 出入库 ================= */
+async function loadIO(){
+  const d = await api('/api/io');
+  document.getElementById('io-date').textContent = d.date;
+  document.getElementById('io-in').innerHTML = Number(d.inbound).toLocaleString()+'<small>件</small>';
+  document.getElementById('io-out').innerHTML = Number(d.outbound).toLocaleString()+'<small>件</small>';
+  document.getElementById('io-stock').innerHTML = Number(d.stock).toLocaleString()+'<small>件</small>';
+
+  const names = d.slots.map(s=>s.slot_name);
+  const inb = d.slots.map(s=>s.inbound);
+  const outb = d.slots.map(s=>s.outbound);
+  chart('c-io').setOption({
+    tooltip:{...TT, axisPointer:{type:'shadow',
+      shadowStyle:{color:'rgba(60,150,230,.12)'}}},
+    legend:{right:16, top:2, itemWidth:10, itemHeight:10, itemGap:14,
+      textStyle:{color:'#8fb6d4',fontSize:11.5}, data:['入库','出库']},
+    grid:{left:52,right:20,top:36,bottom:26,containLabel:true},
+    xAxis:{type:'category', data:names, axisTick:{show:false},
+      axisLine:{lineStyle:{color:'rgba(80,150,210,.4)'}},
+      axisLabel:{color:AX,fontSize:11.5}},
+    yAxis:{type:'value', name:'件', nameTextStyle:{color:'#4a7fa8',fontSize:10,padding:[0,0,4,-24]},
+      axisLine:{show:false}, axisTick:{show:false},
+      axisLabel:{color:AX,fontSize:10.5},
+      splitLine:{lineStyle:{color:SPLIT,type:'dashed'}}},
+    series:[
+      {name:'入库', type:'bar', data:inb, barWidth:20, barGap:'22%',
+       itemStyle:{borderRadius:[3,3,0,0],
+         color:new echarts.graphic.LinearGradient(0,0,0,1,[
+           {offset:0,color:'#8ee8ff'},{offset:1,color:'#1f86d8'}])},
+       emphasis:{itemStyle:{color:'#a5efff'}}},
+      {name:'出库', type:'bar', data:outb, barWidth:20,
+       itemStyle:{borderRadius:[3,3,0,0],
+         color:new echarts.graphic.LinearGradient(0,0,0,1,[
+           {offset:0,color:'#ff9fb4'},{offset:1,color:'#c8325c'}])},
+       emphasis:{itemStyle:{color:'#ffb8c8'}}}
+    ]
+  });
+}
+
+/* ================= 5. 设备统计（环形） ================= */
+async function loadDev(){
+  const d = await api('/api/devices');
+  document.getElementById('dev-total').textContent = '共 ' + d.total + ' 个点位';
+  document.getElementById('dev-normal').textContent = d.normal;
+  document.getElementById('dev-standby').textContent = d.standby;
+  document.getElementById('dev-offline').textContent = d.offline;
+  document.getElementById('dev-fault').textContent = d.fault;
+
+  chart('c-dev').setOption({
+    tooltip:{...TT, trigger:'item',
+      formatter:p=>`${p.name}<br/><b style="color:#4fd8ff">${p.value}</b> 个 (${p.percent}%)`},
+    series:[{
+      type:'pie', radius:['56%','76%'], center:['50%','50%'],
+      startAngle:90, avoidLabelOverlap:false,
+      itemStyle:{borderColor:'rgba(4,14,28,.9)', borderWidth:3},
+      label:{show:false}, labelLine:{show:false},
+      emphasis:{scale:true, scaleSize:5, itemStyle:{shadowBlur:16,shadowColor:'rgba(80,200,255,.5)'}},
+      data:[
+        {name:'正常', value:d.normal, itemStyle:{color:'#2fe0b0'}},
+        {name:'待机', value:d.standby, itemStyle:{color:'#3aa8ff'}},
+        {name:'离线', value:d.offline, itemStyle:{color:'#ffc74b'}},
+        {name:'故障', value:d.fault, itemStyle:{color:'#ff5a72'}}
+      ]
+    },{
+      type:'pie', radius:['46%','48%'], center:['50%','50%'], silent:true,
+      label:{show:true, position:'center',
+        formatter:'{a|设备统计}\n{b|'+d.total+'}\n{c|总点位}',
+        rich:{
+          a:{color:'#7fa6c8',fontSize:11.5,lineHeight:18},
+          b:{color:'#4fd8ff',fontSize:22,fontWeight:'bold',fontFamily:'Consolas,monospace',
+             lineHeight:26,textShadow:{color:'rgba(70,200,255,.6)',blur:12}},
+          c:{color:'#5d92bd',fontSize:10.5,lineHeight:14}
+        }},
+      labelLine:{show:false},
+      data:[{value:1, itemStyle:{color:'rgba(40,120,190,.10)'}}]
+    }]
+  });
+}
+
+/* ================= 6. 温湿度 ================= */
+async function loadEnv(){
+  const d = await api('/api/env');
+  const x = d.map(i=>i.ts.slice(11,16));
+  const t = d.map(i=>i.t), h = d.map(i=>i.h);
+  const last = d[d.length-1];
+  document.getElementById('env-now').textContent = `${last.t}℃ / ${last.h}%`;
+  chart('c-env').setOption({
+    tooltip:{...TT},
+    legend:{right:6, top:0, itemWidth:12, itemHeight:3, itemGap:14,
+      textStyle:{color:'#8fb6d4',fontSize:11}, icon:'roundRect'},
+    grid:{left:40,right:44,top:30,bottom:6,containLabel:true},
+    xAxis:{type:'category', data:x, boundaryGap:false,
+      axisTick:{show:false}, axisLine:{lineStyle:{color:'rgba(80,150,210,.35)'}},
+      axisLabel:{color:AX,fontSize:9.5,interval:3}},
+    yAxis:[
+      {type:'value', name:'℃', nameTextStyle:{color:'#ffb84d',fontSize:10},
+       min:14, max:32, splitNumber:4, axisLine:{show:false}, axisTick:{show:false},
+       axisLabel:{color:'#c79a55',fontSize:9.5},
+       splitLine:{lineStyle:{color:SPLIT,type:'dashed'}}},
+      {type:'value', name:'%', nameTextStyle:{color:'#5fd6ff',fontSize:10},
+       min:30, max:80, splitNumber:4, axisLine:{show:false}, axisTick:{show:false},
+       axisLabel:{color:'#4f9fc4',fontSize:9.5}, splitLine:{show:false}}
+    ],
+    series:[
+      {name:'温度', type:'line', smooth:true, symbol:'none', data:t,
+       lineStyle:{width:2.2,color:'#ffb84d',shadowColor:'rgba(255,184,77,.6)',shadowBlur:10},
+       areaStyle:{color:grad('rgba(255,184,77,.30)','rgba(255,184,77,0)')}},
+      {name:'湿度', type:'line', smooth:true, symbol:'none', yAxisIndex:1, data:h,
+       lineStyle:{width:2.2,color:'#5fd6ff',shadowColor:'rgba(95,214,255,.6)',shadowBlur:10},
+       areaStyle:{color:grad('rgba(95,214,255,.26)','rgba(95,214,255,0)')}}
+    ]
+  });
+}
+
+/* ================= 7. 告警 ================= */
+async function loadAlarm(){
+  const d = await api('/api/alarms');
+  document.getElementById('alarm-chip').textContent = '近 ' + d.length + ' 条';
+  const lv = {'紧急':'', '重要':'lv2', '一般':'lv3'};
+  document.getElementById('alarm-list').innerHTML = d.map(r=>`
+    <div class="alarm-item ${lv[r.level]||''}">
+      <div class="tm">${(r.alarm_time||'').slice(5,16)}</div>
+      <div>
+        <div class="ct">${r.content}</div>
+        <div class="src">${r.source} · ${r.level} · ${r.is_handled?'已处理':'未处理'}</div>
+      </div>
+    </div>`).join('');
+}
+
+/* ================= 启动 ================= */
+async function boot(){
+  await Promise.all([loadInv(), loadStaff(), loadOrders(), loadIO(),
+                     loadDev(), loadEnv(), loadAlarm()]);
+  try{
+    const u = await api('/api/points/units');
+    const t = u.reduce((s,i)=>s+i.cnt,0);
+    document.getElementById('pt-chip').textContent = '点位 ' + t;
+  }catch(e){}
+}
+boot();
+addEventListener('resize', ()=>Object.values(C).forEach(c=>c.resize()));
+setInterval(()=>{ loadInv(); loadStaff(); loadIO(); loadDev(); loadEnv(); loadAlarm(); }, 20000);
+</script>
+
+<script>
+/* =====================================================================
+   多视图切换 + 各视图真实数据加载
+   ===================================================================== */
+var VIEW = 'home';
+
+function fmt(n){ return Number(n||0).toLocaleString(); }
+
+/* ---------- 首页数据重载（切换回首页 / 手动刷新时调用） ---------- */
+function loadHome(){
+  return Promise.all([loadInv(), loadStaff(), loadOrders(), loadIO(),
+                      loadDev(), loadEnv(), loadAlarm()]).catch(function(e){
+    console.warn('[home]', e);
+  });
+}
+function pct(a,b){ return b ? (a/b*100) : 0; }
+
+/* ---------- 切换 ---------- */
+function showView(name){
+  document.querySelectorAll('.view').forEach(function(v){
+    v.classList.toggle('on', v.dataset.view === name);
+  });
+  document.querySelectorAll('.nav-btn').forEach(function(b){
+    b.classList.toggle('on', b.dataset.view === name);
+  });
+  VIEW = name;
+  var fn = LOADER[name];
+  if (fn) fn().catch(function(e){ console.warn('[view]', name, e); });
+  /* 隐藏时初始化的图表尺寸为 0，切换后需要 resize */
+  setTimeout(function(){
+    Object.values(C).forEach(function(c){ try{ c.resize(); }catch(e){} });
+  }, 60);
+}
+
+/* ---------- 出入库统计 ---------- */
+async function loadViewIO(){
+  var d = await api('/api/io');
+  var tr = d.trend || [];
+  var inSum = tr.reduce(function(s,r){ return s + Number(r.inb); }, 0);
+  var outSum = tr.reduce(function(s,r){ return s + Number(r.outb); }, 0);
+
+  document.getElementById('v-io-in').innerHTML = fmt(d.inbound) + '<small>件</small>';
+  document.getElementById('v-io-out').innerHTML = fmt(d.outbound) + '<small>件</small>';
+  document.getElementById('v-io-net').innerHTML = fmt(d.inbound - d.outbound) + '<small>件</small>';
+  document.getElementById('v-io-stock').innerHTML = fmt(d.stock) + '<small>件</small>';
+  document.getElementById('v-io-date').textContent = '统计日 ' + d.date;
+
+  /* 与昨日对比 */
+  if (tr.length >= 2){
+    var cur = tr[tr.length-1], prev = tr[tr.length-2];
+    var di = Number(cur.inb) - Number(prev.inb);
+    var do_ = Number(cur.outb) - Number(prev.outb);
+    var f = function(v,base){
+      var p = base ? (v/base*100) : 0;
+      return (v>=0?'+':'') + v.toLocaleString() + ' 件 (' +
+             (v>=0?'+':'') + p.toFixed(1) + '%)';
+    };
+    document.getElementById('v-io-in-s').textContent = '较昨日 ' + f(di, Number(prev.inb));
+    document.getElementById('v-io-out-s').textContent = '较昨日 ' + f(do_, Number(prev.outb));
+  }
+
+  /* 7 日趋势 */
+  chart('c-io7').setOption({
+    tooltip:{ ...TT, trigger:'axis',
+      axisPointer:{type:'shadow', shadowStyle:{color:'rgba(60,150,230,.12)'}} },
+    legend:{ left:'center', top:0, itemWidth:12, itemHeight:8, itemGap:26,
+      textStyle:{color:'#8fb6d4', fontSize:12}, data:['入库','出库','净流量'] },
+    grid:{ left:56, right:64, top:46, bottom:26, containLabel:true },
+    xAxis:{ type:'category', data:tr.map(function(r){ return r.d.slice(5); }),
+      axisTick:{show:false},
+      axisLine:{lineStyle:{color:'rgba(80,150,210,.4)'}},
+      axisLabel:{color:AX, fontSize:11.5} },
+    yAxis:[
+      { type:'value', name:'件', nameTextStyle:{color:'#4a7fa8',fontSize:10},
+        axisLine:{show:false}, axisTick:{show:false},
+        axisLabel:{color:AX, fontSize:10.5},
+        splitLine:{lineStyle:{color:SPLIT, type:'dashed'}} },
+      { type:'value', name:'',
+        axisLine:{show:false}, axisTick:{show:false},
+        axisLabel:{color:'#4f9fc4', fontSize:10.5}, splitLine:{show:false} }
+    ],
+    series:[
+      { name:'入库', type:'bar', barWidth:22, barGap:'20%',
+        data:tr.map(function(r){ return Number(r.inb); }),
+        itemStyle:{ borderRadius:[3,3,0,0],
+          color:new echarts.graphic.LinearGradient(0,0,0,1,[
+            {offset:0,color:'#8ee8ff'},{offset:1,color:'#1f86d8'}]) } },
+      { name:'出库', type:'bar', barWidth:22,
+        data:tr.map(function(r){ return Number(r.outb); }),
+        itemStyle:{ borderRadius:[3,3,0,0],
+          color:new echarts.graphic.LinearGradient(0,0,0,1,[
+            {offset:0,color:'#ff9fb4'},{offset:1,color:'#c8325c'}]) } },
+      { name:'净流量', type:'line', yAxisIndex:1, smooth:true, symbol:'circle',
+        symbolSize:6, data:tr.map(function(r){ return Number(r.inb)-Number(r.outb); }),
+        lineStyle:{ width:2.2, color:'#3ff0c0',
+          shadowColor:'rgba(63,240,192,.6)', shadowBlur:10 },
+        itemStyle:{ color:'#3ff0c0', borderColor:'#04101f', borderWidth:2 } }
+    ]
+  });
+
+  /* 时段明细表 */
+  var total = d.inbound || 1, acc = 0;
+  var rows = d.slots.map(function(s){
+    acc += Number(s.inbound);
+    var diff = Number(s.inbound) - Number(s.outbound);
+    var p = pct(Number(s.inbound), total);
+    return '<tr>' +
+      '<td>' + s.slot_name + '</td>' +
+      '<td class="num">' + fmt(s.inbound) + '</td>' +
+      '<td class="num">' + fmt(s.outbound) + '</td>' +
+      '<td class="num ' + (diff>=0?'pos':'neg') + '">' +
+        (diff>=0?'+':'') + fmt(diff) + '</td>' +
+      '<td><div class="bar-cell"><i style="width:' + p.toFixed(1) + '%"></i></div></td>' +
+      '<td class="num">' + fmt(acc) + '</td>' +
+    '</tr>';
+  }).join('');
+  document.querySelector('#v-io-tbl tbody').innerHTML = rows;
+  document.getElementById('v-io-slot-sum').textContent =
+    '合计入 ' + fmt(d.inbound) + ' / 出 ' + fmt(d.outbound);
+}
+
+/* ---------- 流量分析 ---------- */
+async function loadViewFlow(){
+  var d = await api('/api/io');
+  var tr = d.trend || [];
+
+  var inSum = tr.reduce(function(s,r){ return s + Number(r.inb); }, 0);
+  var outSum = tr.reduce(function(s,r){ return s + Number(r.outb); }, 0);
+  document.getElementById('v-fl-in').innerHTML = fmt(inSum) + '<small>件</small>';
+  document.getElementById('v-fl-out').innerHTML = fmt(outSum) + '<small>件</small>';
+  document.getElementById('v-fl-avg-in').innerHTML =
+    fmt(Math.round(inSum / Math.max(tr.length,1))) + '<small>件</small>';
+  document.getElementById('v-fl-bal').innerHTML =
+    (inSum ? (outSum/inSum*100).toFixed(1) : '0.0') + '<small>%</small>';
+
+  /* 每日净流量 */
+  chart('c-flow-net').setOption({
+    tooltip:{ ...TT, trigger:'axis',
+      axisPointer:{type:'shadow', shadowStyle:{color:'rgba(60,150,230,.12)'}} },
+    grid:{ left:52, right:22, top:26, bottom:26, containLabel:true },
+    xAxis:{ type:'category', data:tr.map(function(r){ return r.d.slice(5); }),
+      axisTick:{show:false}, axisLine:{lineStyle:{color:'rgba(80,150,210,.4)'}},
+      axisLabel:{color:AX, fontSize:11} },
+    yAxis:{ type:'value', name:'件', nameTextStyle:{color:'#4a7fa8',fontSize:10},
+      axisLine:{show:false}, axisTick:{show:false},
+      axisLabel:{color:AX, fontSize:10.5},
+      splitLine:{lineStyle:{color:SPLIT, type:'dashed'}} },
+    series:[{
+      type:'bar', barWidth:26,
+      data:tr.map(function(r){
+        var v = Number(r.inb) - Number(r.outb);
+        return { value:v,
+          itemStyle:{ borderRadius:[3,3,0,0],
+            color: v>=0
+              ? new echarts.graphic.LinearGradient(0,0,0,1,[
+                  {offset:0,color:'#7ff0cf'},{offset:1,color:'#12a37d'}])
+              : new echarts.graphic.LinearGradient(0,0,0,1,[
+                  {offset:0,color:'#ff9db1'},{offset:1,color:'#b8244a'}]) } };
+      }),
+      label:{ show:true, position:'top', color:'#8fb6d4', fontSize:10,
+        formatter:function(p){ return (p.value>=0?'+':'') + p.value; } }
+    }]
+  });
+
+  /* 时段流量对比 */
+  var slots = d.slots.map(function(s){ return s.slot_name; });
+  chart('c-flow-slot').setOption({
+    tooltip:{ ...TT, trigger:'axis',
+      axisPointer:{type:'shadow', shadowStyle:{color:'rgba(60,150,230,.12)'}} },
+    legend:{ right:12, top:0, itemWidth:12, itemHeight:8, itemGap:14,
+      textStyle:{color:'#8fb6d4', fontSize:11} },
+    grid:{ left:50, right:20, top:32, bottom:26, containLabel:true },
+    xAxis:{ type:'category', data:slots, axisTick:{show:false},
+      axisLine:{lineStyle:{color:'rgba(80,150,210,.4)'}},
+      axisLabel:{color:AX, fontSize:11} },
+    yAxis:{ type:'value', name:'件', nameTextStyle:{color:'#4a7fa8',fontSize:10},
+      axisLine:{show:false}, axisTick:{show:false},
+      axisLabel:{color:AX, fontSize:10.5},
+      splitLine:{lineStyle:{color:SPLIT, type:'dashed'}} },
+    series:[
+      { name:'入库', type:'bar', barWidth:18, barGap:'18%',
+        data:d.slots.map(function(s){ return s.inbound; }),
+        itemStyle:{ borderRadius:[3,3,0,0],
+          color:new echarts.graphic.LinearGradient(0,0,0,1,[
+            {offset:0,color:'#8ee8ff'},{offset:1,color:'#1f86d8'}]) } },
+      { name:'出库', type:'bar', barWidth:18,
+        data:d.slots.map(function(s){ return s.outbound; }),
+        itemStyle:{ borderRadius:[3,3,0,0],
+          color:new echarts.graphic.LinearGradient(0,0,0,1,[
+            {offset:0,color:'#ff9fb4'},{offset:1,color:'#c8325c'}]) } }
+    ]
+  });
+
+  /* 7 日明细表 */
+  var rows = tr.slice().reverse().map(function(r){
+    var net = Number(r.inb) - Number(r.outb);
+    var ratio = r.inb ? (Number(r.outb)/Number(r.inb)*100) : 0;
+    return '<tr>' +
+      '<td>' + r.d + '</td>' +
+      '<td class="num">' + fmt(r.inb) + '</td>' +
+      '<td class="num">' + fmt(r.outb) + '</td>' +
+      '<td class="num ' + (net>=0?'pos':'neg') + '">' +
+        (net>=0?'+':'') + fmt(net) + '</td>' +
+      '<td><div class="bar-cell"><i style="width:' +
+        Math.min(ratio,100).toFixed(1) + '%"></i></div></td>' +
+    '</tr>';
+  }).join('');
+  document.querySelector('#v-fl-tbl tbody').innerHTML = rows;
+  var sumEl = document.getElementById('v-fl-sum');
+  if (sumEl) sumEl.textContent =
+    '净流量合计 ' + ((inSum - outSum) >= 0 ? '+' : '') + fmt(inSum - outSum) + ' 件';
+}
+
+/* ---------- 设备分析 ---------- */
+async function loadViewDev(){
+  var d = await api('/api/devices');
+  document.getElementById('v-dv-total').innerHTML = d.total + '<small>个</small>';
+  document.getElementById('v-dv-normal').innerHTML = d.normal + '<small>个</small>';
+  document.getElementById('v-dv-standby').innerHTML =
+    d.standby + ' / ' + d.offline;
+  document.getElementById('v-dv-offline').textContent =
+    '离线 ' + d.offline + ' 个';
+  document.getElementById('v-dv-fault').innerHTML = d.fault + '<small>个</small>';
+  document.getElementById('v-dv-rate').innerHTML = d.online_rate + '<small>%</small>';
+  document.getElementById('v-dv-units').textContent =
+    (d.units ? d.units.length : 0) + ' 个设备组';
+
+  chart('c-dev2').setOption({
+    tooltip:{ ...TT, trigger:'item',
+      formatter:function(p){
+        return p.name + '<br/><b style="color:#4fd8ff">' + p.value +
+          '</b> 个 (' + p.percent + '%)';
+      } },
+    legend:{ bottom:2, itemWidth:10, itemHeight:10, itemGap:14,
+      textStyle:{color:'#8fb6d4', fontSize:11} },
+    series:[{
+      type:'pie', radius:['48%','70%'], center:['50%','46%'],
+      avoidLabelOverlap:false,
+      itemStyle:{ borderColor:'rgba(4,14,28,.9)', borderWidth:3 },
+      label:{ show:true, color:'#cde9ff', fontSize:11,
+        formatter:'{d}%' },
+      labelLine:{ length:8, length2:10,
+        lineStyle:{color:'rgba(120,180,230,.5)'} },
+      emphasis:{ scale:true, scaleSize:6,
+        itemStyle:{ shadowBlur:18, shadowColor:'rgba(80,200,255,.55)' } },
+      data:[
+        {name:'正常', value:d.normal, itemStyle:{color:'#2fe0b0'}},
+        {name:'待机', value:d.standby, itemStyle:{color:'#3aa8ff'}},
+        {name:'离线', value:d.offline, itemStyle:{color:'#ffc74b'}},
+        {name:'故障', value:d.fault, itemStyle:{color:'#ff5a72'}}
+      ]
+    }]
+  });
+
+  /* 各单元堆叠柱 */
+  var us = (d.units || []).slice(0, 12);
+  chart('c-devbar').setOption({
+    tooltip:{ ...TT, trigger:'axis',
+      axisPointer:{type:'shadow', shadowStyle:{color:'rgba(60,150,230,.12)'}} },
+    legend:{ right:10, top:0, itemWidth:12, itemHeight:8, itemGap:14,
+      textStyle:{color:'#8fb6d4', fontSize:11} },
+    grid:{ left:56, right:20, top:34, bottom:54, containLabel:true },
+    xAxis:{ type:'category',
+      data:us.map(function(u){ return u.unit_code; }),
+      axisTick:{show:false}, axisLine:{lineStyle:{color:'rgba(80,150,210,.4)'}},
+      axisLabel:{color:AX, fontSize:10.5, rotate: us.length > 6 ? 28 : 0} },
+    yAxis:{ type:'value', name:'点位', nameTextStyle:{color:'#4a7fa8',fontSize:10},
+      axisLine:{show:false}, axisTick:{show:false},
+      axisLabel:{color:AX, fontSize:10.5},
+      splitLine:{lineStyle:{color:SPLIT, type:'dashed'}} },
+    series:[
+      { name:'正常', type:'bar', stack:'s', barWidth:'46%',
+        data:us.map(function(u){ return u.normal; }),
+        itemStyle:{color:'#2fe0b0'} },
+      { name:'待机', type:'bar', stack:'s',
+        data:us.map(function(u){ return u.standby; }),
+        itemStyle:{color:'#3aa8ff'} },
+      { name:'离线', type:'bar', stack:'s',
+        data:us.map(function(u){ return u.offline; }),
+        itemStyle:{color:'#ffc74b'} },
+      { name:'故障', type:'bar', stack:'s',
+        data:us.map(function(u){ return u.fault; }),
+        itemStyle:{color:'#ff5a72', borderRadius:[3,3,0,0]} }
+    ]
+  });
+
+  /* 明细表 */
+  var rows = (d.units || []).map(function(u){
+    var tot = u.normal + u.standby + u.offline + u.fault;
+    var h = tot ? (u.normal / tot * 100) : 0;
+    var cls = h >= 90 ? '' : (h >= 75 ? 'o' : 'r');
+    return '<tr>' +
+      '<td>' + u.unit_code + '</td>' +
+      '<td>' + u.device + '</td>' +
+      '<td class="num pos">' + u.normal + '</td>' +
+      '<td class="num">' + u.standby + '</td>' +
+      '<td class="num">' + u.offline + '</td>' +
+      '<td class="num ' + (u.fault ? 'neg' : '') + '">' + u.fault + '</td>' +
+      '<td class="num">' + tot + '</td>' +
+      '<td><div class="bar-cell"><i style="width:' + h.toFixed(1) + '%"></i></div></td>' +
+    '</tr>';
+  }).join('');
+  document.querySelector('#v-dv-tbl tbody').innerHTML = rows;
+}
+
+/* ---------- 业务系统 ---------- */
+async function loadViewSys(){
+  var d = await api('/api/health');
+
+  document.getElementById('v-sy-ok').innerHTML =
+    d.ok + ' <small>/ ' + d.total + '</small>';
+  document.getElementById('v-sy-ok-s').textContent =
+    '共 ' + d.total + ' 项数据表';
+  var up = d.uptime_s || 0;
+  var upTxt = up >= 3600
+    ? Math.floor(up/3600) + 'h ' + Math.floor(up%3600/60) + 'm'
+    : Math.floor(up/60) + 'm ' + (up%60) + 's';
+  document.getElementById('v-sy-up').textContent = upTxt;
+  document.getElementById('v-sy-ver').textContent = '版本 v' + d.version;
+  document.getElementById('v-sy-status').textContent =
+    d.status === 'ok' ? '● 全部正常' : '● 部分异常';
+  document.getElementById('v-sy-status').style.color =
+    d.status === 'ok' ? '#3ff0c0' : '#ffc74b';
+
+  var rows = (d.checks || []).map(function(c){
+    return '<tr>' +
+      '<td><span class="' + (c.ok ? 'dot-ok' : 'dot-ng') + '"></span></td>' +
+      '<td>' + c.name + '</td>' +
+      '<td style="color:#5d92bd">' + c.table + '</td>' +
+      '<td class="num">' + fmt(c.rows) + '</td>' +
+      '<td class="num ' + (c.ok ? 'pos' : 'neg') + '">' +
+        (c.ok ? '正常' : '异常') + '</td>' +
+    '</tr>';
+  }).join('');
+  document.querySelector('#v-sy-tbl tbody').innerHTML = rows;
+
+  /* 各数据表记录数 */
+  var ck = (d.checks || []).slice().sort(function(a,b){ return a.rows - b.rows; });
+  chart('c-sy-rows').setOption({
+    tooltip:{ ...TT, trigger:'axis',
+      axisPointer:{type:'shadow', shadowStyle:{color:'rgba(60,150,230,.12)'}} },
+    grid:{ left:76, right:46, top:14, bottom:16, containLabel:true },
+    xAxis:{ type:'value', axisLine:{show:false}, axisTick:{show:false},
+      axisLabel:{color:AX, fontSize:10.5},
+      splitLine:{lineStyle:{color:SPLIT, type:'dashed'}} },
+    yAxis:{ type:'category',
+      data:ck.map(function(c){ return c.name; }),
+      axisTick:{show:false}, axisLine:{lineStyle:{color:'rgba(80,150,210,.4)'}},
+      axisLabel:{color:'#9fc4de', fontSize:11} },
+    series:[{
+      type:'bar', barWidth:12,
+      data:ck.map(function(c){ return c.rows; }),
+      itemStyle:{ borderRadius:[0,3,3,0],
+        color:new echarts.graphic.LinearGradient(0,0,1,0,[
+          {offset:0,color:'#1f6fbf'},{offset:1,color:'#7fe3ff'}]) },
+      label:{ show:true, position:'right', color:'#8fb6d4', fontSize:10 }
+    }]
+  });
+
+  /* 点位单元分布 */
+  var u = await api('/api/points/units');
+  var tot = u.reduce(function(s,i){ return s + i.cnt; }, 0);
+  document.getElementById('v-sy-pt').innerHTML = fmt(tot) + '<small>个</small>';
+  var urows = u.map(function(i){
+    var p = tot ? (i.cnt / tot * 100) : 0;
+    return '<tr>' +
+      '<td>' + i.unit_code + '</td>' +
+      '<td>' + i.unit_name + '</td>' +
+      '<td class="num">' + i.cnt + '</td>' +
+      '<td><div class="bar-cell"><i style="width:' + p.toFixed(1) + '%"></i></div></td>' +
+    '</tr>';
+  }).join('');
+  document.querySelector('#v-sy-unit tbody').innerHTML = urows;
+
+  /* 点位占比饼图 */
+  var PIEC = ['#2fe0b0','#3aa8ff','#ffc74b','#ff5a72','#9b8cff','#33d1d1','#ff9f43'];
+  chart('c-sy-pie').setOption({
+    tooltip:{ ...TT, trigger:'item',
+      formatter:function(p){
+        return p.name + '<br/><b style="color:#4fd8ff">' + p.value +
+          '</b> 个 (' + p.percent + '%)';
+      } },
+    legend:{ orient:'vertical', right:8, top:'center', itemWidth:10,
+      itemHeight:10, itemGap:9, textStyle:{color:'#8fb6d4', fontSize:11} },
+    series:[{
+      type:'pie', radius:['38%','66%'], center:['34%','50%'],
+      itemStyle:{ borderColor:'rgba(4,14,28,.9)', borderWidth:2 },
+      label:{ show:true, color:'#cde9ff', fontSize:10.5,
+        formatter:function(p){ return p.percent >= 6 ? p.percent + '%' : ''; } },
+      labelLine:{ length:6, length2:8,
+        lineStyle:{color:'rgba(120,180,230,.5)'} },
+      emphasis:{ scale:true, scaleSize:5,
+        itemStyle:{ shadowBlur:16, shadowColor:'rgba(80,200,255,.5)' } },
+      data:u.map(function(i,k){
+        return { name:i.unit_code, value:i.cnt,
+          itemStyle:{ color: PIEC[k % PIEC.length] } };
+      })
+    }]
+  });
+
+  /* 未处理告警 */
+  try{
+    var a = await api('/api/alarms');
+    var un = a.filter(function(r){ return !r.is_handled; }).length;
+    document.getElementById('v-sy-alarm').innerHTML = un + '<small>条</small>';
+  }catch(e){}
+}
+
+/* ---------- 路由表 ---------- */
+var LOADER = {
+  home: function(){ return loadHome(); },
+  io:   loadViewIO,
+  flow: loadViewFlow,
+  dev:  loadViewDev,
+  sys:  loadViewSys,
+  pts:  loadViewPts
+};
+
+
+/* ================= 点位数据视图 ================= */
+var PT_ST = { q:'', unit:'', type:'', rw:'', sk:'id', dir:1, page:1, size:25 };
+
+function ptAll(){ return window.POINTS || []; }
+
+function ptFiltered(){
+  var all = ptAll(), q = PT_ST.q.trim().toLowerCase();
+  var out = all.filter(function(p){
+    if (PT_ST.unit && p.unit_code !== PT_ST.unit) return false;
+    if (PT_ST.type && p.data_type !== PT_ST.type) return false;
+    if (PT_ST.rw && p.rw !== PT_ST.rw) return false;
+    if (q){
+      var hay = [p.point_name,p.point_cn,p.address,p.unit_name,p.unit_code,
+                 p.station,p.plc_ip,p.data_type,p.uom].join(' ').toLowerCase();
+      if (hay.indexOf(q) < 0) return false;
+    }
+    return true;
+  });
+  var k = PT_ST.sk, d = PT_ST.dir;
+  out.sort(function(a,b){
+    var x = a[k], y = b[k];
+    if (k === 'id') return (x - y) * d;
+    x = (x == null ? '' : String(x)); y = (y == null ? '' : String(y));
+    var r = x.localeCompare(y, 'zh');
+    if (r === 0) r = a.id - b.id;
+    return r * d;
+  });
+  return out;
+}
+
+function ptTypeCls(t){
+  var n = (t || '').toLowerCase();
+  if (n.indexOf('bool') === 0) return 'bool';
+  if (n.indexOf('string') === 0) return 'str';
+  return 'num';
+}
+
+function renderPtsTable(){
+  var rows = ptFiltered();
+  var total = rows.length;
+  var pages = Math.max(1, Math.ceil(total / PT_ST.size));
+  if (PT_ST.page > pages) PT_ST.page = pages;
+
+  var st = (PT_ST.page - 1) * PT_ST.size;
+  var pageRows = rows.slice(st, st + PT_ST.size);
+
+  var tb = document.querySelector('#pt-tbl tbody');
+  if (!pageRows.length){
+    tb.innerHTML = '<tr><td colspan="11" style="text-align:center;color:#5d86bd;padding:34px 0;">'
+      + '没有匹配的点位，请调整筛选条件</td></tr>';
+  } else {
+    tb.innerHTML = pageRows.map(function(p){
+      return '<tr data-id="' + p.id + '">'
+        + '<td class="num" style="color:#5d92bd">' + p.id + '</td>'
+        + '<td><span style="color:#6fd0ff;font-family:Consolas,monospace">' + (p.unit_code||'-') + '</span></td>'
+        + '<td>' + (p.unit_name||'-') + '</td>'
+        + '<td style="color:#8fb3cf">' + (p.station||'-') + '</td>'
+        + '<td class="num" style="color:#8fb3cf">' + (p.plc_ip||'-') + '</td>'
+        + '<td style="color:#cde9ff">' + (p.point_name||'-') + '</td>'
+        + '<td>' + (p.point_cn||'-') + '</td>'
+        + '<td><span class="tag-t ' + ptTypeCls(p.data_type) + '">' + (p.data_type||'-') + '</span></td>'
+        + '<td style="color:#8fb3cf">' + (p.uom||'-') + '</td>'
+        + '<td class="num" style="color:#6fd0ff">' + (p.address||'-') + '</td>'
+        + '<td><span class="tag-rw ' + (p.rw === 'read-write' ? 'rwx' : 'ro') + '">'
+        + (p.rw === 'read-write' ? '可写' : '只读') + '</span></td>'
+        + '</tr>';
+    }).join('');
+  }
+
+  // 表头排序箭头
+  document.querySelectorAll('#pt-tbl thead th').forEach(function(th){
+    var ar = th.querySelector('.ar');
+    if (!ar) return;
+    ar.textContent = (th.dataset.sk === PT_ST.sk) ? (PT_ST.dir > 0 ? '▲' : '▼') : '';
+  });
+
+  // 计数
+  var allN = ptAll().length;
+  document.getElementById('pt-count').textContent =
+    '共 ' + allN + ' 条' + (total !== allN ? ' · 命中 ' + total : '');
+  document.getElementById('v-pt-summary').textContent = '第 ' + PT_ST.page + ' / ' + pages + ' 页';
+
+  // 分页
+  var pg = document.getElementById('pt-pager');
+  var html = '';
+  function btn(label, page, cls){
+    return '<span class="pg ' + (cls||'') + '" data-pg="' + page + '">' + label + '</span>';
+  }
+  html += btn('首页', 1, PT_ST.page === 1 ? 'dis' : '');
+  html += btn('‹', PT_ST.page - 1, PT_ST.page === 1 ? 'dis' : '');
+  var s0 = Math.max(1, PT_ST.page - 3), s1 = Math.min(pages, s0 + 6);
+  s0 = Math.max(1, s1 - 6);
+  if (s0 > 1) html += '<span class="pg dot">…</span>';
+  for (var i = s0; i <= s1; i++) html += btn(i, i, i === PT_ST.page ? 'on' : '');
+  if (s1 < pages) html += '<span class="pg dot">…</span>';
+  html += btn('›', PT_ST.page + 1, PT_ST.page === pages ? 'dis' : '');
+  html += btn('末页', pages, PT_ST.page === pages ? 'dis' : '');
+  pg.innerHTML = html;
+}
+
+function ptCharts(){
+  var all = ptAll(), um = {}, ucode = {}, tm = {};
+  all.forEach(function(p){
+    um[p.unit_name] = (um[p.unit_name] || 0) + 1;
+    ucode[p.unit_name] = p.unit_code;
+    var t = p.data_type || '未知';
+    tm[t] = (tm[t] || 0) + 1;
+  });
+  var PA = ['#4fd0ff','#3ff0c0','#ffbe5a','#ff8b98','#9b8cff','#5bc0eb','#7fd0ff'];
+
+  // 单元分布（横向条形）
+  var uk = Object.keys(um).sort(function(a,b){ return um[a] - um[b]; });
+  var el1 = document.getElementById('c-pt-unit');
+  var c1 = echarts.getInstanceByDom(el1) || echarts.init(el1);
+  C.ptUnit = c1;
+  c1.setOption({
+    grid:{ left:6, right:42, top:14, bottom:6, containLabel:true },
+    tooltip:{ trigger:'axis', axisPointer:{ type:'shadow' },
+      backgroundColor:'rgba(8,26,46,.95)', borderColor:'rgba(79,208,255,.45)',
+      textStyle:{ color:'#cde9ff', fontSize:12 },
+      formatter:function(ps){
+        var p = ps[0];
+        var pct = (p.value / all.length * 100).toFixed(1);
+        return p.name + '<br/>点位 <b style="color:#4fd0ff">' + p.value + '</b> 个 · 占 ' + pct + '%';
+      } },
+    xAxis:{ type:'value', splitLine:{ lineStyle:{ color:'rgba(46,110,170,.22)' } },
+      axisLabel:{ color:'#5d92bd', fontSize:10 }, axisLine:{ show:false }, axisTick:{ show:false } },
+    yAxis:{ type:'category', data:uk,
+      axisLabel:{ color:'#a9cbe8', fontSize:11, margin:10,
+        formatter:function(v){ return v.length > 6 ? v.slice(0,6) : v; } },
+      axisLine:{ lineStyle:{ color:'rgba(46,110,170,.4)' } }, axisTick:{ show:false } },
+    series:[{
+      type:'bar', barWidth:'52%',
+      data: uk.map(function(k){ return um[k]; }),
+      itemStyle:{ borderRadius:[0,3,3,0],
+        color:function(p){
+          var mx = Math.max.apply(null, uk.map(function(k){ return um[k]; }));
+          var r = p.value / mx;
+          return new echarts.graphic.LinearGradient(0,0,1,0,[
+            { offset:0, color:'rgba(79,208,255,' + (0.22 + r*0.3).toFixed(2) + ')' },
+            { offset:1, color:'rgba(79,208,255,' + (0.6 + r*0.4).toFixed(2) + ')' }]);
+        } },
+      label:{ show:true, position:'right', distance:6,
+        color:'#8fd6ff', fontSize:11, fontFamily:'Consolas', formatter:'{c}' }
+    }]
+  }, true);
+
+  var top = Object.keys(um).sort(function(a,b){ return um[b] - um[a]; })[0];
+  document.getElementById('v-pt-unitmax').textContent = '最多 ' + (top||'-') + ' ' + (um[top]||0) + ' 个';
+
+  // 数据类型构成（环形）
+  var tk = Object.keys(tm).sort(function(a,b){ return tm[b] - tm[a]; });
+  var el2 = document.getElementById('c-pt-type');
+  var c2 = echarts.getInstanceByDom(el2) || echarts.init(el2);
+  C.ptType = c2;
+  c2.setOption({
+    color: PA,
+    tooltip:{ trigger:'item',
+      backgroundColor:'rgba(8,26,46,.95)', borderColor:'rgba(79,208,255,.45)',
+      textStyle:{ color:'#cde9ff', fontSize:12 },
+      formatter:function(p){ return p.name + '<br/><b style="color:#4fd0ff">' + p.value
+        + '</b> 个 · ' + p.percent + '%'; } },
+    legend:{ orient:'vertical', right:6, top:'center', itemWidth:9, itemHeight:9,
+      itemGap:7, textStyle:{ color:'#a9cbe8', fontSize:10.5 },
+      formatter:function(n){ return n + '  ' + tm[n]; } },
+    graphic:[
+      { type:'text', left:'30%', top:'44%', style:{ text:String(all.length),
+        fill:'#e7faff', fontSize:22, fontFamily:'Consolas', fontWeight:'bold',
+        textAlign:'center' } },
+      { type:'text', left:'30%', top:'60%', style:{ text:'点位总数',
+        fill:'#5d92bd', fontSize:10.5, textAlign:'center' } }
+    ],
+    series:[{
+      type:'pie', radius:['52%','76%'], center:['32%','50%'],
+      avoidLabelOverlap:true, label:{ show:false }, labelLine:{ show:false },
+      itemStyle:{ borderColor:'rgba(6,20,36,.9)', borderWidth:2 },
+      emphasis:{ itemStyle:{ shadowBlur:14, shadowColor:'rgba(79,208,255,.5)' } },
+      data: tk.map(function(k){ return { name:k, value:tm[k] }; })
+    }]
+  }, true);
+}
+
+async function loadViewPts(){
+  var all = ptAll();
+  if (!all.length) return;
+
+  // KPI
+  var um = {}, tm = {}, ips = {};
+  all.forEach(function(p){
+    um[p.unit_code] = 1;
+    tm[p.data_type] = 1;
+    if (p.plc_ip) ips[p.plc_ip] = 1;
+  });
+  var rwN = all.filter(function(p){ return p.rw === 'read-write'; }).length;
+  document.getElementById('v-pt-total').innerHTML = fmt(all.length) + '<small>个</small>';
+  document.getElementById('v-pt-units').innerHTML = fmt(Object.keys(um).length) + '<small>个</small>';
+  document.getElementById('v-pt-types').innerHTML = fmt(Object.keys(tm).length) + '<small>类</small>';
+  document.getElementById('v-pt-typelist').textContent = Object.keys(tm).join(' / ');
+  document.getElementById('v-pt-rw').innerHTML = fmt(rwN) + '<small>个</small>';
+  document.getElementById('v-pt-ro').textContent = '只读 ' + (all.length - rwN) + ' 个';
+  document.getElementById('v-pt-ip').innerHTML = fmt(Object.keys(ips).length) + '<small>个</small>';
+
+  // 下拉选项（只初始化一次）
+  var selU = document.getElementById('pt-unit');
+  if (selU.options.length <= 1){
+    var us = {};
+    all.forEach(function(p){ us[p.unit_code + '|' + p.unit_name] = 1; });
+    Object.keys(us).sort().forEach(function(k){
+      var a = k.split('|');
+      var o = document.createElement('option');
+      o.value = a[0]; o.textContent = a[0] + ' ' + a[1];
+      selU.appendChild(o);
+    });
+    var tset = {};
+    all.forEach(function(p){ tset[p.data_type] = 1; });
+    var selT = document.getElementById('pt-type');
+    Object.keys(tset).sort().forEach(function(t){
+      var o = document.createElement('option');
+      o.value = t; o.textContent = t;
+      selT.appendChild(o);
+    });
+  }
+
+  renderPtsTable();
+  ptCharts();
+  setTimeout(function(){
+    [C.ptUnit, C.ptType].forEach(function(c){ try{ c && c.resize(); }catch(e){} });
+  }, 90);
+}
+
+/* ---------- 表格交互绑定（只绑一次） ---------- */
+(function(){
+  var q = document.getElementById('pt-q');
+  if (!q || q.dataset.bound) return;
+  q.dataset.bound = '1';
+
+  var timer = null;
+  q.addEventListener('input', function(){
+    clearTimeout(timer);
+    timer = setTimeout(function(){
+      PT_ST.q = q.value; PT_ST.page = 1; renderPtsTable();
+    }, 180);
+  });
+
+  document.getElementById('pt-unit').addEventListener('change', function(e){
+    PT_ST.unit = e.target.value; PT_ST.page = 1; renderPtsTable();
+  });
+  document.getElementById('pt-type').addEventListener('change', function(e){
+    PT_ST.type = e.target.value; PT_ST.page = 1; renderPtsTable();
+  });
+
+  document.querySelectorAll('.pts-chip').forEach(function(ch){
+    ch.addEventListener('click', function(){
+      document.querySelectorAll('.pts-chip').forEach(function(c){ c.classList.remove('on'); });
+      ch.classList.add('on');
+      PT_ST.rw = ch.dataset.rw; PT_ST.page = 1; renderPtsTable();
+    });
+  });
+
+  document.getElementById('pt-reset').addEventListener('click', function(){
+    PT_ST.q = ''; PT_ST.unit = ''; PT_ST.type = ''; PT_ST.rw = '';
+    PT_ST.page = 1; PT_ST.sk = 'id'; PT_ST.dir = 1;
+    q.value = '';
+    document.getElementById('pt-unit').value = '';
+    document.getElementById('pt-type').value = '';
+    document.querySelectorAll('.pts-chip').forEach(function(c){
+      c.classList.toggle('on', c.dataset.rw === '');
+    });
+    renderPtsTable();
+    toast('筛选条件已重置');
+  });
+
+  document.getElementById('pt-csv').addEventListener('click', function(){
+    var rows = ptFiltered();
+    var head = ['序号','单元代码','单元名称','PLC站','PLC IP','点位名','点位中文名',
+                '数据类型','单位','地址','读写'];
+    var lines = [head.map(csvCell).join(',')];
+    rows.forEach(function(p){
+      lines.push([p.id,p.unit_code,p.unit_name,p.station,p.plc_ip,p.point_name,
+        p.point_cn,p.data_type,p.uom,p.address,p.rw === 'read-write' ? '可写' : '只读'
+      ].map(csvCell).join(','));
+    });
+    download('点位数据表_' + rows.length + '条.csv', lines.join('\r\n'));
+    toast('已导出 ' + rows.length + ' 条点位记录');
+  });
+
+  // 表头排序
+  document.querySelectorAll('#pt-tbl thead th').forEach(function(th){
+    th.addEventListener('click', function(){
+      var k = th.dataset.sk;
+      if (!k) return;
+      if (PT_ST.sk === k) PT_ST.dir = -PT_ST.dir;
+      else { PT_ST.sk = k; PT_ST.dir = 1; }
+      PT_ST.page = 1;
+      renderPtsTable();
+    });
+  });
+
+  // 分页
+  document.getElementById('pt-pager').addEventListener('click', function(e){
+    var t = e.target.closest('.pg');
+    if (!t || t.classList.contains('dis') || t.classList.contains('dot')) return;
+    var p = parseInt(t.dataset.pg, 10);
+    if (!p || p === PT_ST.page) return;
+    PT_ST.page = p;
+    renderPtsTable();
+  });
+
+  // 行点击 -> 详情
+  document.querySelector('#pt-tbl tbody').addEventListener('click', function(e){
+    var tr = e.target.closest('tr[data-id]');
+    if (!tr) return;
+    var id = parseInt(tr.dataset.id, 10);
+    var p = ptAll().filter(function(x){ return x.id === id; })[0];
+    if (!p) return;
+    openModal('点位详情 · #' + p.id,
+      '<div><b>单元</b>　' + p.unit_code + ' ' + p.unit_name + '</div>'
+      + '<div><b>PLC 站</b>　' + (p.station || '—') + '　<b>IP</b>　' + (p.plc_ip || '—') + '</div>'
+      + '<div><b>点位名</b>　' + p.point_name + '</div>'
+      + '<div><b>中文名</b>　' + (p.point_cn || '—') + '</div>'
+      + '<div><b>数据类型</b>　' + p.data_type + '　<b>单位</b>　' + (p.uom || '—') + '</div>'
+      + '<div><b>PLC 地址</b>　' + (p.address || '—') + '</div>'
+      + '<div><b>读写权限</b>　' + (p.rw === 'read-write' ? '可写' : '只读') + '</div>');
+  });
+})();
+
+/* ---------- 通用：CSV 单元格 / 下载 / toast / 模态 ---------- */
+function csvCell(v){
+  var s = (v == null ? '' : String(v)).replace(/"/g, '""');
+  return '"' + s + '"';
+}
+function download(name, text){
+  var blob = new Blob(['\ufeff' + text], { type:'text/csv;charset=utf-8' });
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 400);
+}
+var _tt = null;
+function toast(msg){
+  var t = document.getElementById('toast');
+  if (!t) return;
+  t.textContent = msg;
+  t.classList.add('on');
+  clearTimeout(_tt);
+  _tt = setTimeout(function(){ t.classList.remove('on'); }, 1900);
+}
+function openModal(title, bodyHtml){
+  var md = document.getElementById('md');
+  md.querySelector('.md-hd').innerHTML =
+    title + '<span class="x" data-close>&times;</span>';
+  document.getElementById('md-body').innerHTML = bodyHtml;
+  md.classList.add('on');
+}
+function closeAll(){
+  document.getElementById('lb').classList.remove('on');
+  document.getElementById('md').classList.remove('on');
+}
+
+/* ---------- 监控画面点击放大 ---------- */
+document.querySelectorAll('.cam').forEach(function(cam){
+  cam.addEventListener('click', function(){
+    var img = cam.querySelector('img');
+    if (!img) return;
+    var lbl = cam.querySelector('.lbl');
+    var lb = document.getElementById('lb');
+    lb.querySelector('img').src = img.src;
+    lb.querySelector('.lb-cap').textContent =
+      (lbl ? lbl.textContent.trim() : '监控画面') + '　·　点击任意位置关闭';
+    lb.classList.add('on');
+  });
+});
+
+/* ---------- 顶部按钮 ---------- */
+(function(){
+  var r = document.getElementById('h-refresh');
+  if (r) r.addEventListener('click', function(){
+    var fn = LOADER[VIEW];
+    if (fn) fn().catch(function(){}).then(function(){ toast('数据已刷新'); });
+    else toast('当前视图无需刷新');
+  });
+
+  var f = document.getElementById('h-full');
+  if (f) f.addEventListener('click', function(){
+    if (!document.fullscreenElement){
+      var el = document.documentElement;
+      var p = el.requestFullscreen ? el.requestFullscreen() : null;
+      if (p && p.catch) p.catch(function(){ toast('浏览器拒绝了全屏请求'); });
+      document.body.classList.add('is-full');
+    } else {
+      if (document.exitFullscreen) document.exitFullscreen();
+      document.body.classList.remove('is-full');
+    }
+  });
+
+  var ex = document.getElementById('h-export');
+  if (ex) ex.addEventListener('click', function(){
+    var v = document.querySelector('.view.on');
+    if (VIEW === 'pts'){ document.getElementById('pt-csv').click(); return; }
+    var tb = v ? v.querySelector('table') : null;
+    if (!tb){ toast('当前视图暂无可导出的表格'); return; }
+    var lines = [];
+    tb.querySelectorAll('tr').forEach(function(tr){
+      var cells = [];
+      tr.querySelectorAll('th,td').forEach(function(c){
+        cells.push(csvCell((c.textContent || '').replace(/\s+/g, ' ').trim()));
+      });
+      if (cells.length) lines.push(cells.join(','));
+    });
+    if (lines.length < 2){ toast('表格暂无数据'); return; }
+    download('看板_' + VIEW + '_' + new Date().toISOString().slice(0,10) + '.csv', lines.join('\r\n'));
+    toast('已导出当前视图表格');
+  });
+
+  var st = document.getElementById('h-set');
+  if (st) st.addEventListener('click', function(){
+    var all = ptAll();
+    openModal('系统设置 · 数据源说明',
+      '<div><b>数据来源</b>　点位表 points.csv（' + all.length + ' 个点位）</div>'
+      + '<div><b>业务数据</b>　出入库 / 订单 / 流量 / 设备 / 告警 接口快照</div>'
+      + '<div><b>刷新周期</b>　非首页视图每 20 秒自动刷新</div>'
+      + '<div><b>快捷键盘</b>　1 首页　2 出入库　3 流量　4 设备　5 业务系统　6 点位数据</div>'
+      + '<div><b>运行模式</b>　' + (location.protocol === 'file:' ? '离线单文件模式' : '在线模式') + '</div>'
+      + '<div style="margin-top:10px;color:#7fb9e2;font-size:12px;">'
+      + '提示：点击监控画面可放大查看；点击点位表格任意一行可查看该点位的完整属性。</div>');
+  });
+})();
+
+/* ---------- 遮罩点击关闭 ---------- */
+document.addEventListener('click', function(e){
+  if (e.target.closest('[data-close]')) { closeAll(); return; }
+  var lb = document.getElementById('lb');
+  if (lb && lb.classList.contains('on') && e.target === lb) closeAll();
+  var md = document.getElementById('md');
+  if (md && md.classList.contains('on') && e.target === md) closeAll();
+});
+addEventListener('keydown', function(e){
+  if (e.key === 'Escape') closeAll();
+});
+
+
+/* 监控图片缺失时的友好兜底（只发给别人、没带 media 目录时触发） */
+function camFail(img){
+  var box = img.parentNode;
+  if (!box || box.querySelector('.camfail')) return;
+  var name = (img.getAttribute('src') || '').split('/').pop();
+  var alt = (img.getAttribute('alt') || '监控画面').replace(' 实时画面', '');
+  img.style.display = 'none';
+  var d = document.createElement('div');
+  d.className = 'camfail';
+  d.innerHTML = '<b>' + alt + '</b>'
+    + '<span>画面文件缺失 <code>' + name + '</code></span>'
+    + '<span>请把 media 目录与网页一起发送<br/>或直接改用「单文件版」</span>';
+  box.appendChild(d);
+}
+window.camFail = camFail;
+(function () {
+  document.querySelectorAll('.cam img').forEach(function (i) {
+    if (i.complete && !i.naturalWidth) camFail(i);
+  });
+})();
+
+/* ---------- 绑定导航 ---------- */
+document.querySelectorAll('.nav-btn').forEach(function(b){
+  b.addEventListener('click', function(){
+    if (location.hash.slice(1) !== b.dataset.view) location.hash = b.dataset.view;
+    showView(b.dataset.view);
+  });
+});
+
+/* ---------- hash 路由 ---------- */
+addEventListener('hashchange', function(){
+  var v = location.hash.slice(1) || 'home';
+  if (LOADER[v]) showView(v);
+});
+(function(){
+  var v = location.hash.slice(1);
+  if (v && LOADER[v] && v !== 'home') setTimeout(function(){ showView(v); }, 300);
+})();
+
+/* ---------- 键盘 1-5 快捷切换 ---------- */
+addEventListener('keydown', function(e){
+  if (e.altKey || e.ctrlKey || e.metaKey) return;
+  var map = {'1':'home','2':'io','3':'flow','4':'dev','5':'sys','6':'pts'};
+  if (map[e.key]) showView(map[e.key]);
+});
+
+/* ---------- 非首页视图定时刷新 ---------- */
+setInterval(function(){
+  if (VIEW !== 'home' && LOADER[VIEW]) {
+    LOADER[VIEW]().catch(function(){});
+  }
+}, 20000);
+</script>
+
+<div class="lb" id="lb">
+  <span class="lb-x" data-close>&times;</span>
+  <img alt="监控画面放大">
+  <div class="lb-cap"></div>
+</div>
+<div class="md" id="md">
+  <div class="md-box">
+    <div class="md-hd">系统设置<span class="x" data-close>&times;</span></div>
+    <div class="md-bd" id="md-body"></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+</body>
+</html>

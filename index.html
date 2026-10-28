@@ -405,6 +405,36 @@
 .cam .camfail b{color:#ffbe5a;font-size:13px;letter-spacing:1px;font-weight:600;}
 .cam .camfail span{color:#7fb9e2;font-size:11.5px;line-height:1.7;}
 .cam .camfail code{color:#8fd6ff;background:rgba(10,34,60,.8);padding:1px 5px;border-radius:2px;font-size:11px;}
+/* ===== 实时数据视觉反馈 ===== */
+.chip.live{display:inline-flex;align-items:center;gap:5px;color:#3ff0c0;
+  border-color:rgba(63,240,192,.38);background:rgba(20,90,80,.16);
+  font-family:Consolas,monospace;letter-spacing:.3px;}
+.chip.live i{width:6px;height:6px;border-radius:50%;background:#3ff0c0;
+  box-shadow:0 0 8px #3ff0c0;animation:liveBlink 1.8s ease-in-out infinite;}
+.chip.live em{font-style:normal;color:#8fe8d0;font-size:10.5px;}
+.chip.live.tick{animation:liveTick .55s ease-out;}
+@keyframes liveBlink{0%,100%{opacity:1}50%{opacity:.25}}
+@keyframes liveTick{0%{box-shadow:0 0 0 0 rgba(63,240,192,.55)}
+  100%{box-shadow:0 0 0 9px rgba(63,240,192,0)}}
+
+.h-btn.loading{color:#8fe8d0;border-color:rgba(63,240,192,.55);pointer-events:none;}
+.h-btn.loading::before{content:'';display:inline-block;width:9px;height:9px;
+  margin-right:5px;vertical-align:-1px;border:1.5px solid rgba(63,240,192,.45);
+  border-top-color:#3ff0c0;border-radius:50%;animation:liveSpin .55s linear infinite;}
+@keyframes liveSpin{to{transform:rotate(360deg)}}
+
+.data-flash{animation:dataFlash .62s ease-out;}
+@keyframes dataFlash{0%{opacity:.35;filter:brightness(2);transform:translateY(-1px)}
+  60%{opacity:1;filter:brightness(1.15)}100%{opacity:1;filter:none;transform:none}}
+
+#refresh-scan{position:fixed;inset:0;z-index:80;pointer-events:none;opacity:0;
+  background:linear-gradient(180deg,transparent 0%,rgba(80,200,255,.05) 44%,
+    rgba(120,230,255,.20) 50%,rgba(80,200,255,.05) 56%,transparent 100%);
+  background-size:100% 240%;background-repeat:no-repeat;}
+#refresh-scan.on{animation:liveScan .9s ease-out;}
+@keyframes liveScan{0%{opacity:0;background-position:0 -130%}
+  18%{opacity:1}100%{opacity:0;background-position:0 130%}}
+
 </style>
 </head>
 <body>
@@ -431,6 +461,7 @@
     <h1>HT 智慧物流数据平台<span class="dot">·</span>物流看板</h1>
     <div class="h-right">
       <span class="chip" id="pt-chip">点位 166</span>
+      <span class="chip live" id="live-chip"><i></i>LIVE <em id="live-time">--:--:--</em></span>
       <span id="clock">2026-10-21 14:09:03</span>
       <span class="h-btn" id="h-refresh">刷新数据</span><span class="h-btn" id="h-full">全屏</span><span class="h-btn" id="h-export">导出报表</span><span class="h-btn" id="h-set">系统设置</span>
     </div>
@@ -907,6 +938,459 @@ window.__API_DATA__ = {"/api/overview":{"code":0,"data":{"stat_date":"2026-10-21
 })();
 </script>
 <script>
+/* ===== 实时数据引擎：让内联快照随时间变化 ===== */
+(function () {
+  'use strict';
+  if (!window.__API_DATA__) return;
+
+  var BASE = JSON.parse(JSON.stringify(window.__API_DATA__));
+  var clone = function (o) { return JSON.parse(JSON.stringify(o)); };
+  var pad = function (n) { return String(n).padStart(2, '0'); };
+  var dateStr = function (d) {
+    return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+  };
+  var dtStr = function (d) {
+    return dateStr(d) + ' ' + pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+  };
+  var clockStr = function (d) {
+    return pad(d.getHours()) + ':' + pad(d.getMinutes()) + ':' + pad(d.getSeconds());
+  };
+  var rnd = function (a, b) { return a + Math.random() * (b - a); };
+  var irnd = function (a, b) { return Math.floor(rnd(a, b + 1)); };
+  var clamp = function (v, a, b) { return Math.min(b, Math.max(a, v)); };
+  var r1 = function (v) { return Math.round(v * 10) / 10; };
+  var chance = function (p) { return Math.random() < p; };
+  var pick = function (arr) { return arr[Math.floor(Math.random() * arr.length)]; };
+  var shuffle = function (arr) {
+    for (var i = arr.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = arr[i]; arr[i] = arr[j]; arr[j] = t;
+    }
+    return arr;
+  };
+
+  var OV0 = BASE['/api/overview'].data;
+  var INV0 = BASE['/api/inventory'].data;
+  var STAFF0 = BASE['/api/staff'].data;
+  var IO0 = BASE['/api/io'].data;
+  var DEV0 = BASE['/api/devices'].data;
+  var ENV0 = BASE['/api/env'].data;
+  var ORDER0 = BASE['/api/orders'].data;
+  var ALARM0 = BASE['/api/alarms'].data;
+  var HEALTH0 = BASE['/api/health'].data;
+  var UNIT0 = BASE['/api/points/units'].data;
+
+  var START = Date.now();
+  var S = {
+    capacity: OV0.capacity,
+    stock: OV0.stock,
+    inbound: OV0.inbound,
+    outbound: OV0.outbound,
+    onDuty: OV0.on_duty,
+    pickTimes: OV0.pick_times,
+    vehicles: OV0.vehicle,
+    temp: OV0.temperature,
+    humidity: OV0.humidity,
+    orderSeq: 0,
+    orderRows: clone(ORDER0.rows),
+    alarms: clone(ALARM0),
+    env: clone(ENV0),
+    units: clone(DEV0.units),
+    health: clone(HEALTH0),
+    snapshot: null,
+    snapshotAt: 0,
+    version: 0
+  };
+  S.orderRows.forEach(function (r) {
+    var n = parseInt(r.order_no, 10);
+    if (n > S.orderSeq) S.orderSeq = n;
+  });
+
+  var IO_IN_W = [0.110, 0.280, 0.260, 0.235, 0.115];
+  var IO_OUT_W = [0.105, 0.275, 0.265, 0.230, 0.125];
+
+  function stepInventory(manual) {
+    if (manual) {
+      S.stock += (chance(0.5) ? 1 : -1) * irnd(60, 170);
+      S.inbound += irnd(25, 90);
+      S.outbound += irnd(18, 80);
+    } else {
+      S.stock += (chance(0.5) ? 1 : -1) * irnd(4, 18);
+      S.inbound += irnd(1, 12);
+      S.outbound += irnd(1, 10);
+    }
+    S.stock = clamp(S.stock, 9200, 11840);
+    S.inbound = clamp(S.inbound, 2600, 9800);
+    S.outbound = clamp(S.outbound, 2000, 9200);
+  }
+
+  function stepStaff(manual) {
+    if (manual) {
+      S.onDuty += (chance(0.5) ? 1 : -1) * irnd(8, 20);
+      S.vehicles += (chance(0.5) ? 1 : -1) * irnd(2, 6);
+      S.pickTimes += irnd(20, 60);
+    } else {
+      S.onDuty += (chance(0.5) ? 1 : -1) * irnd(2, 7);
+      S.vehicles += (chance(0.5) ? 1 : -1) * irnd(0, 2);
+      S.pickTimes += irnd(0, 8);
+    }
+    S.onDuty = clamp(S.onDuty, 505, 615);
+    S.vehicles = clamp(S.vehicles, 24, 46);
+    S.pickTimes = clamp(S.pickTimes, 420, 880);
+  }
+
+  function stepDevices(manual) {
+    var steps = manual ? irnd(2, 4) : irnd(1, 2);
+    for (var i = 0; i < steps; i++) {
+      var u = pick(S.units);
+      var r = Math.random();
+      if (u.normal > 1 && r < 0.42) { u.normal--; u.standby++; }
+      else if (u.standby > 0 && r < 0.68) { u.standby--; u.normal++; }
+      else if (u.offline > 0 && r < 0.86) { u.offline--; u.normal++; }
+      else if (u.fault > 0 && r < 0.93) { u.fault--; u.normal++; }
+      else if (u.normal > 1) { u.normal--; (chance(0.6) ? u.offline++ : u.fault++); }
+    }
+  }
+
+  function stepEnv(manual) {
+    var today = dateStr(new Date());
+    for (var i = 0; i < S.env.length; i++) {
+      var base = ENV0[i] || S.env[i];
+      var t = S.env[i].t * 0.82 + base.t * 0.18 + rnd(-0.10, 0.10);
+      var h = S.env[i].h * 0.82 + base.h * 0.18 + rnd(-0.35, 0.35);
+      S.env[i].t = r1(clamp(t, 14.3, 31.3));
+      S.env[i].h = r1(clamp(h, 31.5, 78.5));
+      S.env[i].ts = today + ' ' + pad(i) + ':00:00';
+    }
+    if (manual) {
+      var last = S.env[S.env.length - 1];
+      last.t = r1(clamp(last.t + rnd(-0.4, 0.4), 14.3, 31.3));
+      last.h = r1(clamp(last.h + rnd(-1.4, 1.4), 31.5, 78.5));
+    }
+    S.temp = S.env[S.env.length - 1].t;
+    S.humidity = S.env[S.env.length - 1].h;
+  }
+
+  function newOrderRow() {
+    S.orderSeq += 1;
+    var tpl = pick(ORDER0.rows);
+    var now = new Date();
+    return {
+      order_no: String(S.orderSeq),
+      sku_code: tpl.sku_code,
+      product: tpl.product,
+      batch_no: 'PL-24' + pad(irnd(1, 12)) + pick(['A', 'B', 'C']),
+      qty: pick([48, 96, 120, 180, 210, 264, 300, 348, 400]),
+      status: '待拣货',
+      station: tpl.station,
+      create_time: dtStr(new Date(now.getTime() - irnd(0, 20) * 60000))
+    };
+  }
+
+  function stepOrders(manual) {
+    var today = dateStr(new Date());
+    var moved = false;
+    S.orderRows.forEach(function (r) {
+      var tm = (r.create_time || '').slice(11, 19) || '00:00:00';
+      r.create_time = today + ' ' + tm;
+      if (chance(manual ? 0.55 : 0.28)) {
+        if (r.status === '待拣货') { r.status = '拣货中'; moved = true; }
+        else if (r.status === '拣货中') { r.status = '已出库'; moved = true; }
+        else if (chance(0.10)) { r.status = '待拣货'; moved = true; }
+      }
+    });
+    if (!moved) {
+      for (var i = 0; i < S.orderRows.length; i++) {
+        if (S.orderRows[i].status !== '已出库') {
+          S.orderRows[i].status =
+            S.orderRows[i].status === '待拣货' ? '拣货中' : '已出库';
+          moved = true;
+          break;
+        }
+      }
+    }
+    if (!moved && S.orderRows.length) {
+      pick(S.orderRows).status = '待拣货';
+    }
+    if (manual || chance(0.4)) S.orderRows.unshift(newOrderRow());
+    while (S.orderRows.length > 12) S.orderRows.pop();
+  }
+
+  function buildAlarms(manual) {
+    var now = new Date();
+    var pool = shuffle(clone(ALARM0));
+    var n = 9 + (manual ? irnd(0, 2) : 0);
+    var list = [];
+    var cursor = now.getTime() - irnd(0, 3) * 60000;
+    for (var i = 0; i < n; i++) {
+      var tpl = clone(pool[i % pool.length]);
+      cursor -= irnd(3, 9) * 60000;
+      tpl.alarm_time = dtStr(new Date(cursor));
+      tpl.is_handled = chance(0.42) ? 0 : 1;
+      if (i === 0 && manual) { tpl.level = '紧急'; tpl.is_handled = 0; }
+      list.push(tpl);
+    }
+    var un = list.filter(function (r) { return !r.is_handled; }).length;
+    for (var j = 0; un < 3 && j < list.length; j++) {
+      if (list[j].is_handled) { list[j].is_handled = 0; un++; }
+    }
+    list.sort(function (a, b) {
+      return a.alarm_time < b.alarm_time ? 1 : (a.alarm_time > b.alarm_time ? -1 : 0);
+    });
+    S.alarms = list;
+  }
+
+  function split(total, weights, jitter) {
+    var w = weights.map(function (x) { return Math.max(0.02, x + rnd(-jitter, jitter)); });
+    var sum = w.reduce(function (a, b) { return a + b; }, 0);
+    var out = [], acc = 0;
+    for (var i = 0; i < w.length; i++) {
+      if (i === w.length - 1) {
+        out.push(Math.max(0, total - acc));
+      } else {
+        var v = Math.round(total * w[i] / sum);
+        out.push(v);
+        acc += v;
+      }
+    }
+    return out;
+  }
+
+  function trendDates(n, now) {
+    var out = [];
+    for (var i = 0; i < n; i++) {
+      var k = n - 1 - i;
+      out.push(dateStr(new Date(now.getFullYear(), now.getMonth(), now.getDate() - k)));
+    }
+    return out;
+  }
+
+  function buildSnapshot(manual) {
+    stepInventory(manual);
+    stepStaff(manual);
+    stepDevices(manual);
+    stepEnv(manual);
+    stepOrders(manual);
+    buildAlarms(manual);
+
+    var now = new Date();
+    var today = dateStr(now);
+    var stock = Math.round(S.stock);
+    var inbound = Math.round(S.inbound);
+    var outbound = Math.round(S.outbound);
+    var useRate = r1(stock / S.capacity * 100);
+    var turnover = r1((inbound + outbound) / 2 / stock * 100);
+
+    var dv = { total: 0, normal: 0, standby: 0, offline: 0, fault: 0 };
+    S.units.forEach(function (u) {
+      dv.normal += u.normal;
+      dv.standby += u.standby;
+      dv.offline += u.offline;
+      dv.fault += u.fault;
+    });
+    dv.total = dv.normal + dv.standby + dv.offline + dv.fault;
+    dv.online_rate = r1((dv.total - dv.offline) / dv.total * 100);
+
+    var unhandled = S.alarms.filter(function (r) { return !r.is_handled; }).length;
+
+    var invDates = trendDates(INV0.trend.length, now);
+    var invTrend = INV0.trend.map(function (r, i) {
+      var x = clone(r);
+      x.d = invDates[i];
+      return x;
+    });
+    var invLast = invTrend[invTrend.length - 1];
+    invLast.inb = inbound;
+    invLast.outb = outbound;
+    invLast.stock = stock;
+    invLast.rate = useRate;
+
+    var staffDates = trendDates(STAFF0.trend.length, now);
+    var staffTrend = STAFF0.trend.map(function (r, i) {
+      var x = clone(r);
+      x.d = staffDates[i];
+      return x;
+    });
+    var staffLast = staffTrend[staffTrend.length - 1];
+    staffLast.on_duty = Math.round(S.onDuty);
+    staffLast.pick_times = Math.round(S.pickTimes);
+    staffLast.vehicle_cnt = Math.round(S.vehicles);
+
+    var inSplit = split(inbound, IO_IN_W, manual ? 0.03 : 0.007);
+    var outSplit = split(outbound, IO_OUT_W, manual ? 0.03 : 0.007);
+    var slots = IO0.slots.map(function (s, i) {
+      return { slot_name: s.slot_name, inbound: inSplit[i], outbound: outSplit[i] };
+    });
+
+    var ioDates = trendDates(IO0.trend.length, now);
+    var ioTrend = IO0.trend.map(function (r, i) {
+      var x = clone(r);
+      x.d = ioDates[i];
+      return x;
+    });
+    var ioLast = ioTrend[ioTrend.length - 1];
+    ioLast.inb = inbound;
+    ioLast.outb = outbound;
+
+    var orderStat = ['已出库', '待拣货', '拣货中'].map(function (st) {
+      return { status: st, c: S.orderRows.filter(function (r) { return r.status === st; }).length };
+    }).filter(function (x) { return x.c > 0; });
+
+    var health = clone(S.health);
+    health.uptime_s = Math.max(1, Math.round((Date.now() - START) / 1000) + 3);
+    health.checks = health.checks.map(function (c) {
+      if (c.table === 'fact_alarm') c.rows = S.alarms.length;
+      if (c.table === 'fact_order') c.rows = S.orderRows.length + 4;
+      return c;
+    });
+
+    return {
+      '/api/overview': {
+        code: 0,
+        data: {
+          stat_date: today,
+          capacity: S.capacity,
+          stock: stock,
+          use_rate: useRate,
+          turnover: turnover,
+          inbound: inbound,
+          outbound: outbound,
+          on_duty: Math.round(S.onDuty),
+          pick_times: Math.round(S.pickTimes),
+          vehicle: Math.round(S.vehicles),
+          device_total: dv.total,
+          alarm_unhandled: unhandled,
+          temperature: S.temp,
+          humidity: S.humidity
+        }
+      },
+      '/api/inventory': {
+        code: 0,
+        data: {
+          latest: {
+            id: INV0.latest.id,
+            stat_date: today,
+            capacity: S.capacity,
+            inbound_qty: inbound,
+            outbound_qty: outbound,
+            stock_qty: stock,
+            turnover_rate: turnover,
+            use_rate: useRate,
+            create_time: today + ' 00:00:00'
+          },
+          trend: invTrend
+        }
+      },
+      '/api/staff': {
+        code: 0,
+        data: {
+          latest: {
+            id: STAFF0.latest.id,
+            stat_date: today,
+            on_duty: Math.round(S.onDuty),
+            pick_times: Math.round(S.pickTimes),
+            vehicle_cnt: Math.round(S.vehicles)
+          },
+          trend: staffTrend
+        }
+      },
+      '/api/orders': {
+        code: 0,
+        data: { rows: clone(S.orderRows), stat: orderStat }
+      },
+      '/api/io': {
+        code: 0,
+        data: {
+          date: today,
+          slots: slots,
+          inbound: inbound,
+          outbound: outbound,
+          stock: stock,
+          trend: ioTrend
+        }
+      },
+      '/api/devices': {
+        code: 0,
+        data: {
+          total: dv.total,
+          normal: dv.normal,
+          standby: dv.standby,
+          offline: dv.offline,
+          fault: dv.fault,
+          online_rate: dv.online_rate,
+          units: clone(S.units)
+        }
+      },
+      '/api/env': { code: 0, data: clone(S.env) },
+      '/api/alarms': { code: 0, data: clone(S.alarms) },
+      '/api/points/units': { code: 0, data: clone(UNIT0) },
+      '/api/health': { code: 0, data: health }
+    };
+  }
+
+  function markLive() {
+    var tm = document.getElementById('live-time');
+    if (tm) tm.textContent = clockStr(new Date());
+    var chip = document.getElementById('live-chip');
+    if (chip) {
+      chip.classList.remove('tick');
+      void chip.offsetWidth;
+      chip.classList.add('tick');
+    }
+  }
+
+  function makeSnapshot(force, manual) {
+    var t = Date.now();
+    if (!force && S.snapshot && (t - S.snapshotAt) < 1200) return S.snapshot;
+    S.version += 1;
+    var snap = buildSnapshot(!!manual);
+    S.snapshot = snap;
+    S.snapshotAt = t;
+    window.__API_DATA__ = snap;
+    window.__LIVE_VERSION__ = S.version;
+    window.__LIVE_AT__ = new Date();
+    markLive();
+    return snap;
+  }
+
+  window.__LIVE_TICK__ = function (manual) {
+    return makeSnapshot(true, !!manual);
+  };
+
+  window.__REFRESH_FX__ = function () {
+    var scan = document.getElementById('refresh-scan');
+    if (scan) {
+      scan.classList.remove('on');
+      void scan.offsetWidth;
+      scan.classList.add('on');
+    }
+    document.querySelectorAll('.view.on .k-v, .view.on .v, .view.on .n').forEach(function (el) {
+      el.classList.remove('data-flash');
+      void el.offsetWidth;
+      el.classList.add('data-flash');
+      setTimeout(function () { el.classList.remove('data-flash'); }, 700);
+    });
+  };
+
+  // 每次业务接口请求都会检查快照年龄：超过 1.2 秒就生成新一版，
+  // 同一轮并发请求共用同一版，避免各面板数据对不上。
+  var prevFetch = window.fetch;
+  window.fetch = function (u, o) {
+    var url = typeof u === 'string' ? u : (u && u.url) || '';
+    var m = /\/api\/[A-Za-z0-9_\/]+/.exec(url);
+    if (m) {
+      var k = m[0].replace(/\/+$/, '');
+      if (window.__API_DATA__[k]) makeSnapshot(false, false);
+    }
+    return prevFetch.apply(this, arguments);
+  };
+
+  // 首屏先生成一个“今天”的快照
+  makeSnapshot(true, false);
+})();
+
+</script>
+<script>
 /* ================= 自适应 ================= */
 function fit(){
   const s = Math.min(innerWidth/1920, innerHeight/1080);
@@ -1139,7 +1623,7 @@ async function boot(){
 }
 boot();
 addEventListener('resize', ()=>Object.values(C).forEach(c=>c.resize()));
-setInterval(()=>{ loadInv(); loadStaff(); loadIO(); loadDev(); loadEnv(); loadAlarm(); }, 20000);
+setInterval(()=>{ loadInv(); loadStaff(); loadOrders(); loadIO(); loadDev(); loadEnv(); loadAlarm(); }, 8000);
 </script>
 
 <script>
@@ -1940,9 +2424,19 @@ document.querySelectorAll('.cam').forEach(function(cam){
 (function(){
   var r = document.getElementById('h-refresh');
   if (r) r.addEventListener('click', function(){
+    if (r.classList.contains('loading')) return;
+    r.classList.add('loading');
+    if (window.__LIVE_TICK__) window.__LIVE_TICK__(true);
+    if (window.__REFRESH_FX__) window.__REFRESH_FX__();
     var fn = LOADER[VIEW];
-    if (fn) fn().catch(function(){}).then(function(){ toast('数据已刷新'); });
-    else toast('当前视图无需刷新');
+    if (fn) {
+      fn().catch(function(){}).then(function(){
+        toast('数据已刷新 · ' + new Date().toTimeString().slice(0, 8));
+      });
+    } else {
+      toast('当前视图数据已刷新 · ' + new Date().toTimeString().slice(0, 8));
+    }
+    setTimeout(function(){ r.classList.remove('loading'); }, 800);
   });
 
   var f = document.getElementById('h-full');
@@ -1983,7 +2477,7 @@ document.querySelectorAll('.cam').forEach(function(cam){
     openModal('系统设置 · 数据源说明',
       '<div><b>数据来源</b>　点位表 points.csv（' + all.length + ' 个点位）</div>'
       + '<div><b>业务数据</b>　出入库 / 订单 / 流量 / 设备 / 告警 接口快照</div>'
-      + '<div><b>刷新周期</b>　非首页视图每 20 秒自动刷新</div>'
+      + '<div><b>刷新周期</b>　全部视图每 8 秒自动刷新，点击“刷新数据”可立即更新</div>'
       + '<div><b>快捷键盘</b>　1 首页　2 出入库　3 流量　4 设备　5 业务系统　6 点位数据</div>'
       + '<div><b>运行模式</b>　' + (location.protocol === 'file:' ? '离线单文件模式' : '在线模式') + '</div>'
       + '<div style="margin-top:10px;color:#7fb9e2;font-size:12px;">'
@@ -2055,7 +2549,7 @@ setInterval(function(){
   if (VIEW !== 'home' && LOADER[VIEW]) {
     LOADER[VIEW]().catch(function(){});
   }
-}, 20000);
+}, 8000);
 </script>
 
 <div class="lb" id="lb">
@@ -2069,6 +2563,7 @@ setInterval(function(){
     <div class="md-bd" id="md-body"></div>
   </div>
 </div>
+<div id="refresh-scan"></div>
 <div class="toast" id="toast"></div>
 </body>
 </html>
